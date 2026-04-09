@@ -1,6 +1,6 @@
 import { Project, CreateProjectRequest, CreateProjectResponse } from '@/types'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5246/api'
 
 export class ProjectService {
   static async createProject(
@@ -62,6 +62,26 @@ export class ProjectService {
       return await response.json()
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Error desconocido')
+    }
+  }
+
+  // 🔥 NUEVO MÉTODO PARA IA
+  static async generateBmc(id: string, token: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${id}/generate-bmc`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al generar el análisis de IA')
+      }
+
+      return await response.json()
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Error de IA')
     }
   }
 }

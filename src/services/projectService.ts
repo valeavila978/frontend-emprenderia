@@ -1,6 +1,6 @@
 import { Project, CreateProjectRequest, CreateProjectResponse } from '@/types'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5246/api'
+import { API_URL } from '@/config'
 
 export class ProjectService {
   static async createProject(

@@ -9,6 +9,7 @@ import { Alert } from '@/components/Alert'
 import Link from 'next/link'
 
 export default function RegisterPage() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -36,7 +37,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      await register(email, password, role)
+      await register(name, email, password, role)
       router.push('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error en el registro')
@@ -56,6 +57,15 @@ export default function RegisterPage() {
         {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Nombre Completo"
+            type="text"
+            placeholder="Juan Pérez"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
           <Input
             label="Email"
             type="email"

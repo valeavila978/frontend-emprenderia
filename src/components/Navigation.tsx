@@ -20,6 +20,7 @@ export function Navigation() {
     { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { href: '/projects', label: 'Proyectos', icon: <Rocket size={18} /> },
     { href: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={18} /> },
+    { href: '/profile', label: 'Mi Perfil', icon: <UserIcon size={18} /> },
   ]
 
   return (

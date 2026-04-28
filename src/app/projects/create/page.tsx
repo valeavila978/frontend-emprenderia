@@ -13,6 +13,7 @@ import Link from 'next/link'
 function CreateProjectContent() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [stage, setStage] = useState('Idea')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,7 +43,8 @@ function CreateProjectContent() {
           ownerId: user.userId,
           title,
           description,
-        },
+          stage,
+        } as any,
         token
       )
 
@@ -99,6 +101,20 @@ function CreateProjectContent() {
                 rows={6}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Etapa del Proyecto</label>
+              <select
+                value={stage}
+                onChange={(e) => setStage(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Idea">💡 Idea</option>
+                <option value="Prototipo">🛠️ Prototipo</option>
+                <option value="MVP">🚀 MVP</option>
+                <option value="Escalado">📈 Escalado</option>
+              </select>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

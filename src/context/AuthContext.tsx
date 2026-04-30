@@ -28,7 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(savedToken)
         try {
           const userData = await AuthService.getMe(savedToken)
-          setUser(userData)
+          // Mapear respuesta plana del backend a estructura anidada esperada
+          const transformedUser: User = {
+            ...userData,
+            profile: { ...userData }
+          }
+          setUser(transformedUser)
         } catch (error) {
           console.warn('Token expirado, intentando refrescar...')
           if (savedRefreshToken) {
@@ -43,7 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               
               const userData = await AuthService.getMe(newToken)
-              setUser(userData)
+              const transformedUser: User = {
+                ...userData,
+                profile: { ...userData }
+              }
+              setUser(transformedUser)
             } catch (refreshError) {
               console.error('Fallo el refresh token', refreshError)
               logout()
@@ -78,7 +87,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await AuthService.getMe(newToken)
-      setUser(userData)
+      const transformedUser: User = {
+        ...userData,
+        profile: { ...userData }
+      }
+      setUser(transformedUser)
       
       return { requires2FA: false }
     } catch (error) {
@@ -104,7 +117,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await AuthService.getMe(newToken)
-      setUser(userData)
+      const transformedUser: User = {
+        ...userData,
+        profile: { ...userData }
+      }
+      setUser(transformedUser)
     } catch (error) {
       logout()
       throw new Error(error instanceof Error ? error.message : 'Error en validación 2FA')
@@ -136,7 +153,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (success) {
       // Recargar datos de usuario para reflejar que 2FA está habilitado
       const userData = await AuthService.getMe(token)
-      setUser(userData)
+      const transformedUser: User = {
+        ...userData,
+        profile: { ...userData }
+      }
+      setUser(transformedUser)
     }
     return success
   }, [token])
@@ -146,9 +167,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const success = await AuthService.disable2FA(token, password, code)
     if (success) {
       const userData = await AuthService.getMe(token)
-      setUser(userData)
+      const transformedUser: User = {
+        ...userData,
+        profile: { ...userData }
+      }
+      setUser(transformedUser)
     }
     return success
+  }, [token])
+
+  const refreshUser = useCallback(async () => {
+    if (token) {
+      const userData = await AuthService.getMe(token)
+      const transformedUser: User = {
+        ...userData,
+        profile: { ...userData }
+      }
+      setUser(transformedUser)
+    }
   }, [token])
 
   const value: AuthContextType = {
@@ -163,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setup2FA,
     verifySetup2FA,
     disable2FA,
+    refreshUser,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

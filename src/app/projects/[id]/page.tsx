@@ -34,7 +34,11 @@ function ProjectDetailContent() {
         const projectData = await ProjectService.getProjectById(projectId, token)
         setProject(projectData)
         
-        // Cargar financieros opcionalmente si el usuario cambia de pestaña
+        // Cargar BMC si existe
+        const bmcData = await ProjectService.getBmc(projectId, token)
+        if (bmcData) {
+          setBmc(bmcData)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al cargar el proyecto')
       } finally {
@@ -61,7 +65,9 @@ function ProjectDetailContent() {
     setError('')
     try {
       const data = await ProjectService.generateBmc(projectId, token)
-      setBmc(data.bmc)
+      // La respuesta del generador puede venir anidada o plana
+      const bmcResult = data.bmc || data
+      setBmc(bmcResult)
       setActiveTab('bmc')
     } catch (err) {
       setError('No se pudo generar el BMC. Verifica que el microservicio de IA esté activo.')
@@ -199,20 +205,20 @@ function ProjectDetailContent() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-100 p-3 rounded-3xl border border-slate-200">
-                      <CanvasBlock title="Aliados Clave" items={bmc.key_partners} color="bg-white" className="md:row-span-2" />
+                      <CanvasBlock title="Aliados Clave" items={bmc.keyPartners || bmc.key_partners} color="bg-white" className="md:row-span-2" />
                       <div className="md:col-span-1 grid grid-rows-2 gap-3">
-                        <CanvasBlock title="Actividades Clave" items={bmc.key_activities} color="bg-white" />
-                        <CanvasBlock title="Recursos Clave" items={bmc.key_resources} color="bg-white" />
+                        <CanvasBlock title="Actividades Clave" items={bmc.keyActivities || bmc.key_activities} color="bg-white" />
+                        <CanvasBlock title="Recursos Clave" items={bmc.keyResources || bmc.key_resources} color="bg-white" />
                       </div>
-                      <CanvasBlock title="Propuesta de Valor" items={bmc.value_proposition} color="bg-blue-50 border-blue-100" className="md:row-span-2" />
+                      <CanvasBlock title="Propuesta de Valor" items={bmc.valueProposition || bmc.value_proposition} color="bg-blue-50 border-blue-100" className="md:row-span-2" />
                       <div className="md:col-span-1 grid grid-rows-2 gap-3">
-                        <CanvasBlock title="Relación con Clientes" items={bmc.customer_relationships} color="bg-white" />
+                        <CanvasBlock title="Relación con Clientes" items={bmc.customerRelationships || bmc.customer_relationships} color="bg-white" />
                         <CanvasBlock title="Canales" items={bmc.channels} color="bg-white" />
                       </div>
-                      <CanvasBlock title="Segmentos de Clientes" items={bmc.customer_segments} color="bg-white" className="md:row-span-2" />
-                      <CanvasBlock title="Estructura de Costos" items={bmc.cost_structure} color="bg-white" className="md:col-span-2" />
+                      <CanvasBlock title="Segmentos de Clientes" items={bmc.customerSegments || bmc.customer_segments} color="bg-white" className="md:row-span-2" />
+                      <CanvasBlock title="Estructura de Costos" items={bmc.costStructure || bmc.cost_structure} color="bg-white" className="md:col-span-2" />
                       <div className="hidden md:block" />
-                      <CanvasBlock title="Fuentes de Ingresos" items={bmc.revenue_streams} color="bg-white" className="md:col-span-2" />
+                      <CanvasBlock title="Fuentes de Ingresos" items={bmc.revenueStreams || bmc.revenue_streams} color="bg-white" className="md:col-span-2" />
                     </div>
                   )}
                 </motion.div>

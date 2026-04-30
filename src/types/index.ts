@@ -56,6 +56,7 @@ export interface AuthContextType {
   setup2FA: () => Promise<{ secret: string; qrUri: string }>
   verifySetup2FA: (code: string) => Promise<boolean>
   disable2FA: (password: string, code: string) => Promise<boolean>
+  refreshUser: () => Promise<void>
 }
 
 // Tipos de Proyectos
@@ -111,10 +112,12 @@ export interface FinancialProjection {
 
 export interface FinancialAnalysis {
   projectId: string
-  projections: FinancialProjection[]
-  riskLevel: 'Low' | 'Medium' | 'High'
-  riskFactors: string[]
-  viabilityScore: number // 0-100
+  revenueProjections: string
+  costAnalysis: string
+  breakEvenAnalysis: string
+  fundingRequirements: string
+  keyIndicators: string
+  generatedAt: string
 }
 
 // Fase 6: Marketplace
@@ -128,4 +131,18 @@ export interface MarketplaceProduct {
   entrepreneurId: string
   entrepreneurName: string
   rating: number
+}
+// Fase 4: Chatbot / Asistente IA
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+}
+
+export interface ChatSession {
+  id: string
+  title: string
+  messages: ChatMessage[]
+  createdAt: string
 }

@@ -32,128 +32,79 @@ interface FinancialDashboardProps {
 }
 
 export function FinancialDashboard({ analysis }: FinancialDashboardProps) {
-  const labels = analysis.projections.map(p => `Año ${p.year}`);
-
-  const barData = {
-    labels,
-    datasets: [
-      {
-        label: 'Ingresos',
-        data: analysis.projections.map(p => p.revenue),
-        backgroundColor: 'rgba(59, 130, 246, 0.6)',
-      },
-      {
-        label: 'Gastos',
-        data: analysis.projections.map(p => p.expenses),
-        backgroundColor: 'rgba(239, 68, 68, 0.6)',
-      },
-    ],
-  };
-
-  const lineData = {
-    labels,
-    datasets: [
-      {
-        label: 'Flujo de Caja',
-        data: analysis.projections.map(p => p.cashFlow),
-        borderColor: 'rgb(34, 197, 94)',
-        tension: 0.3,
-        fill: true,
-        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-      },
-    ],
-  };
-
-  const riskColors = {
-    Low: 'text-green-600 bg-green-100',
-    Medium: 'text-yellow-600 bg-yellow-100',
-    High: 'text-red-600 bg-red-100',
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-              <TrendingUp size={20} />
-            </div>
-            <h3 className="font-bold text-gray-700">Puntaje de Viabilidad</h3>
-          </div>
-          <p className="text-4xl font-black text-blue-600">{analysis.viabilityScore}%</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-1000" 
-              style={{ width: `${analysis.viabilityScore}%` }}
-            ></div>
-          </div>
+      {/* Header Summary */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-3xl text-white shadow-xl">
+        <div className="flex items-center gap-4 mb-4">
+          <TrendingUp size={32} />
+          <h2 className="text-3xl font-black">Análisis de Viabilidad Financiera</h2>
         </div>
-
-        <div className={`p-6 rounded-xl shadow-md border border-gray-100 ${riskColors[analysis.riskLevel]}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-white/50 rounded-lg">
-              <AlertTriangle size={20} />
-            </div>
-            <h3 className="font-bold">Nivel de Riesgo</h3>
-          </div>
-          <p className="text-4xl font-black uppercase">{analysis.riskLevel}</p>
-          <p className="text-sm mt-2 font-medium opacity-80">Evaluado por IA</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-green-100 rounded-lg text-green-600">
-              <ShieldCheck size={20} />
-            </div>
-            <h3 className="font-bold text-gray-700">Factores de Éxito</h3>
-          </div>
-          <ul className="text-sm space-y-2">
-            {analysis.riskFactors.slice(0, 3).map((factor, i) => (
-              <li key={i} className="flex gap-2 items-start text-gray-600">
-                <span className="text-green-500">•</span> {factor}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <p className="text-blue-100 max-w-2xl text-lg">
+          Este informe ha sido generado automáticamente por nuestro modelo de IA analizando tu Business Model Canvas y el contexto del sector.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-            📊 Comparativa Ingresos vs Gastos
-          </h3>
-          <div className="h-64">
-            <Bar 
-              data={barData} 
-              options={{ 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-              }} 
-            />
-          </div>
-        </div>
+      {/* Analysis Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <FinancialCard 
+          title="Proyecciones de Ingresos" 
+          content={analysis.revenueProjections} 
+          icon={<TrendingUp className="text-blue-600" />}
+        />
+        <FinancialCard 
+          title="Análisis de Costos" 
+          content={analysis.costAnalysis} 
+          icon={<AlertTriangle className="text-red-600" />}
+        />
+        <FinancialCard 
+          title="Punto de Equilibrio" 
+          content={analysis.breakEvenAnalysis} 
+          icon={<ShieldCheck className="text-green-600" />}
+        />
+        <FinancialCard 
+          title="Requerimientos de Inversión" 
+          content={analysis.fundingRequirements} 
+          icon={<BarChart3 className="text-purple-600" />}
+        />
+      </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-            📈 Proyección de Flujo de Caja
-          </h3>
-          <div className="h-64">
-            <Line 
-              data={lineData} 
-              options={{ 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-              }} 
-            />
+      {/* Key Indicators Full Width */}
+      <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-amber-100 rounded-2xl text-amber-600">
+            <Sparkles size={24} />
           </div>
+          <h3 className="text-2xl font-black text-slate-800">Indicadores Clave y Recomendaciones</h3>
+        </div>
+        <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed">
+          {analysis.keyIndicators.split('\n').map((line, i) => (
+            <p key={i} className="mb-2">{line}</p>
+          ))}
         </div>
       </div>
     </motion.div>
   );
 }
+
+function FinancialCard({ title, content, icon }: { title: string, content: string, icon: React.ReactNode }) {
+  return (
+    <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 hover:shadow-xl transition-shadow group">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
+          {icon}
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+      </div>
+      <div className="text-slate-600 text-sm leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
+        {content}
+      </div>
+    </div>
+  )
+}
+
+import { BarChart3, Sparkles } from 'lucide-react';

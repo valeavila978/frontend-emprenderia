@@ -7,7 +7,6 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "skip": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,

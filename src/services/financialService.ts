@@ -2,23 +2,20 @@ import { FinancialAnalysis } from '../types';
 import { API_URL } from '@/config';
 
 export const FinancialService = {
-  getAnalysisByProjectId: async (projectId: string, token: string): Promise<FinancialAnalysis> => {
+  getAnalysisByProjectId: async (projectId: string, token: string): Promise<FinancialAnalysis | null> => {
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/financial-analysis`, {
+      const response = await fetch(`${API_URL}/financial/projects/${projectId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) {
-        // Si el backend no tiene el endpoint aún, devolvemos mock data para demostrar la UI
-        return getMockFinancialData(projectId);
-      }
+      if (!response.ok) return null;
 
       return await response.json();
     } catch (error) {
-      console.warn('Backend connection failed, using mock data for financials');
-      return getMockFinancialData(projectId);
+      console.error('Error fetching financial analysis', error);
+      return null;
     }
   },
 };

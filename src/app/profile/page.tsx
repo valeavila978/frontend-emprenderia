@@ -11,19 +11,41 @@ import { Shield, User as UserIcon, Briefcase, Award, Settings as SettingsIcon, C
 import { motion, AnimatePresence } from 'framer-motion'
 
 function ProfileContent() {
-  const { user, token, setup2FA, verifySetup2FA, disable2FA } = useAuth()
+  const { user, token, setup2FA, verifySetup2FA, disable2FA, refreshUser } = useAuth()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
   
   // Profile Form State
   const [profileData, setProfileData] = useState({
-    bio: user?.profile?.bio || '',
-    skills: user?.profile?.skills?.join(', ') || '',
-    interests: user?.profile?.interests?.join(', ') || '',
-    experienceLevel: user?.profile?.experienceLevel || '',
-    industries: user?.profile?.industries?.join(', ') || ''
+    bio: '',
+    skills: '',
+    interests: '',
+    experienceLevel: '',
+    industries: ''
   })
+  const [isEditing, setIsEditing] = useState(false)
+
+  // Sincronizar datos del perfil cuando el usuario cargue
+  useEffect(() => {
+    if (user?.profile) {
+      setProfileData({
+        bio: user.profile.bio || '',
+        skills: user.profile.skills?.join(', ') || '',
+        interests: user.profile.interests?.join(', ') || '',
+        experienceLevel: user.profile.experienceLevel || '',
+        industries: user.profile.industries?.join(', ') || ''
+      })
+      // If the user has a profile with some data, show read-only view initially
+      if (user.profile.bio || (user.profile.skills && user.profile.skills.length > 0)) {
+        setIsEditing(false)
+      } else {
+        setIsEditing(true)
+      }
+    } else {
+      setIsEditing(true)
+    }
+  }, [user])
 
   // 2FA State
   const [show2FASetup, setShow2FASetup] = useState(false)
@@ -48,7 +70,9 @@ function ProfileContent() {
         industries: profileData.industries.split(',').map(s => s.trim()).filter(s => s)
       }
       await ProfileService.updateProfile(token, formattedData)
+      await refreshUser()
       setSuccess('Perfil actualizado correctamente')
+      setIsEditing(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar perfil')
     } finally {
@@ -135,63 +159,126 @@ function ProfileContent() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden"
             >
-              <div className="p-8 border-b border-slate-50 flex items-center gap-4">
-                <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
-                  <Briefcase size={24} />
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
+                    <Briefcase size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">Información Profesional</h2>
+                    <p className="text-sm font-medium text-slate-400">Detalles sobre tu carrera y habilidades</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">Información Profesional</h2>
-                  <p className="text-sm font-medium text-slate-400">Detalles sobre tu carrera y habilidades</p>
-                </div>
+                {!isEditing && (
+                  <Button onClick={() => setIsEditing(true)} variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                    Editar Perfil
+                  </Button>
+                )}
               </div>
               
-              <form onSubmit={handleUpdateProfile} className="p-8 space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Biografía</label>
-                  <textarea 
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all min-h-[120px] text-slate-600"
-                    placeholder="Cuéntanos un poco sobre ti..."
-                    value={profileData.bio}
-                    onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
-                  />
+              {!isEditing ? (
+                <div className="p-8 space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Biografía</label>
+                    <p className="text-slate-600 p-4 bg-slate-50 rounded-2xl border border-slate-100 min-h-[100px]">
+                      {profileData.bio || 'Sin biografía'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Habilidades</label>
+                      <div className="flex flex-wrap gap-2">
+                        {profileData.skills ? profileData.skills.split(',').map((skill, idx) => (
+                          <span key={idx} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-sm font-medium border border-blue-100">
+                            {skill.trim()}
+                          </span>
+                        )) : <span className="text-slate-500 italic text-sm">No especificadas</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Nivel de Experiencia</label>
+                      <p className="text-slate-600 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        {profileData.experienceLevel || 'No especificado'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Intereses</label>
+                      <div className="flex flex-wrap gap-2">
+                        {profileData.interests ? profileData.interests.split(',').map((interest, idx) => (
+                          <span key={idx} className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg text-sm font-medium border border-emerald-100">
+                            {interest.trim()}
+                          </span>
+                        )) : <span className="text-slate-500 italic text-sm">No especificados</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Industrias</label>
+                      <div className="flex flex-wrap gap-2">
+                        {profileData.industries ? profileData.industries.split(',').map((industry, idx) => (
+                          <span key={idx} className="bg-purple-50 text-purple-700 px-3 py-1 rounded-lg text-sm font-medium border border-purple-100">
+                            {industry.trim()}
+                          </span>
+                        )) : <span className="text-slate-500 italic text-sm">No especificadas</span>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <form onSubmit={handleUpdateProfile} className="p-8 space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Biografía</label>
+                    <textarea 
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all min-h-[120px] text-slate-600"
+                      placeholder="Cuéntanos un poco sobre ti..."
+                      value={profileData.bio}
+                      onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
+                    />
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input 
-                    label="Habilidades (separadas por coma)"
-                    placeholder="React, Python, Finanzas..."
-                    value={profileData.skills}
-                    onChange={(e) => setProfileData({...profileData, skills: e.target.value})}
-                  />
-                  <Input 
-                    label="Nivel de Experiencia"
-                    placeholder="Senior, 5 años, etc."
-                    value={profileData.experienceLevel}
-                    onChange={(e) => setProfileData({...profileData, experienceLevel: e.target.value})}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input 
+                      label="Habilidades (separadas por coma)"
+                      placeholder="React, Python, Finanzas..."
+                      value={profileData.skills}
+                      onChange={(e) => setProfileData({...profileData, skills: e.target.value})}
+                    />
+                    <Input 
+                      label="Nivel de Experiencia"
+                      placeholder="Senior, 5 años, etc."
+                      value={profileData.experienceLevel}
+                      onChange={(e) => setProfileData({...profileData, experienceLevel: e.target.value})}
+                    />
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input 
-                    label="Intereses"
-                    placeholder="Sostenibilidad, AI, Fintech..."
-                    value={profileData.interests}
-                    onChange={(e) => setProfileData({...profileData, interests: e.target.value})}
-                  />
-                  <Input 
-                    label="Industrias"
-                    placeholder="Agro, Tech, Salud..."
-                    value={profileData.industries}
-                    onChange={(e) => setProfileData({...profileData, industries: e.target.value})}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input 
+                      label="Intereses"
+                      placeholder="Sostenibilidad, AI, Fintech..."
+                      value={profileData.interests}
+                      onChange={(e) => setProfileData({...profileData, interests: e.target.value})}
+                    />
+                    <Input 
+                      label="Industrias"
+                      placeholder="Agro, Tech, Salud..."
+                      value={profileData.industries}
+                      onChange={(e) => setProfileData({...profileData, industries: e.target.value})}
+                    />
+                  </div>
 
-                <div className="pt-4 flex justify-end">
-                  <Button type="submit" loading={loading} className="px-10 py-3 rounded-2xl font-black shadow-lg shadow-blue-600/20">
-                    Guardar Cambios
-                  </Button>
-                </div>
-              </form>
+                  <div className="pt-4 flex justify-end gap-3">
+                    {user?.profile?.bio && (
+                      <Button type="button" onClick={() => setIsEditing(false)} variant="outline" className="px-8 py-3 rounded-2xl font-black text-slate-600 border-slate-300">
+                        Cancelar
+                      </Button>
+                    )}
+                    <Button type="submit" loading={loading} className="px-10 py-3 rounded-2xl font-black shadow-lg shadow-blue-600/20">
+                      Guardar Cambios
+                    </Button>
+                  </div>
+                </form>
+              )}
             </motion.section>
           </div>
 

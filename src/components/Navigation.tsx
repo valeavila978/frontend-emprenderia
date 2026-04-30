@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { LayoutDashboard, Rocket, ShoppingBag, LogOut, User as UserIcon } from 'lucide-react'
+import { LayoutDashboard, Rocket, ShoppingBag, LogOut, User as UserIcon, Bot } from 'lucide-react'
 
 export function Navigation() {
   const { isAuthenticated, user, logout } = useAuth()
@@ -21,6 +21,7 @@ export function Navigation() {
     { href: '/projects', label: 'Proyectos', icon: <Rocket size={18} /> },
     { href: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={18} /> },
     { href: '/profile', label: 'Mi Perfil', icon: <UserIcon size={18} /> },
+    { href: '/assistant', label: 'Asistente IA', icon: <Bot size={18} /> },
   ]
 
   return (

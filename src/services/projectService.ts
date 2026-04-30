@@ -84,4 +84,25 @@ export class ProjectService {
       throw new Error(error instanceof Error ? error.message : 'Error de IA')
     }
   }
+
+  static async getBmc(id: string, token: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${id}/bmc`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) return null
+        throw new Error('Error al obtener el BMC')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error in getBmc:', error)
+      return null
+    }
+  }
 }

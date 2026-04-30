@@ -13,7 +13,7 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import { FinancialAnalysis } from '@/types';
-import { TrendingUp, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { TrendingUp, AlertTriangle, ShieldCheck, BarChart3, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 ChartJS.register(
@@ -82,7 +82,7 @@ export function FinancialDashboard({ analysis }: FinancialDashboardProps) {
           <h3 className="text-2xl font-black text-slate-800">Indicadores Clave y Recomendaciones</h3>
         </div>
         <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed">
-          {analysis.keyIndicators.split('\n').map((line, i) => (
+          {analysis.keyIndicators?.split('\n').map((line, i) => (
             <p key={i} className="mb-2">{line}</p>
           ))}
         </div>
@@ -101,10 +101,12 @@ function FinancialCard({ title, content, icon }: { title: string, content: strin
         <h3 className="text-xl font-bold text-slate-800">{title}</h3>
       </div>
       <div className="text-slate-600 text-sm leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
-        {content}
+        {content?.split('\n').map((line, i) => (
+          <p key={i} className={line.startsWith('-') || line.startsWith('*') ? "ml-4 mb-1" : "mb-2"}>
+            {line}
+          </p>
+        )) || 'No disponible'}
       </div>
     </div>
   )
 }
-
-import { BarChart3, Sparkles } from 'lucide-react';

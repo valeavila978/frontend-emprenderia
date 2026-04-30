@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { ProjectService } from '@/services/projectService'
 import { FinancialService } from '@/services/financialService'
 import { Alert } from '@/components/Alert'
+import { Button } from '@/components/Button'
 import Link from 'next/link'
 import { Project, FinancialAnalysis } from '@/types'
 import { FinancialDashboard } from '@/components/FinancialDashboard'
@@ -22,6 +23,7 @@ function ProjectDetailContent() {
   const [activeTab, setActiveTab] = useState<TabType>('info')
   const [loading, setLoading] = useState(true)
   const [loadingIA, setLoadingIA] = useState(false)
+  const [loadingFinancials, setLoadingFinancials] = useState(false)
   const [error, setError] = useState('')
   const { token } = useAuth()
   const params = useParams()
@@ -50,12 +52,30 @@ function ProjectDetailContent() {
   }, [token, projectId])
 
   const loadFinancials = async () => {
-    if (!token || financials) return
+    if (!token || financials || loadingFinancials) return
+    setLoadingFinancials(true)
     try {
       const data = await FinancialService.getAnalysisByProjectId(projectId, token)
       setFinancials(data)
     } catch (err) {
-      console.error('Error loading financials', err)
+      console.warn('Analysis not found or error loading', err)
+      setFinancials(null)
+    } finally {
+      setLoadingFinancials(false)
+    }
+  }
+
+  const handleGenerateFinancials = async () => {
+    if (!token || loadingFinancials) return
+    setLoadingFinancials(true)
+    setError('')
+    try {
+      const data = await FinancialService.generateAnalysis(projectId, token)
+      setFinancials(data)
+    } catch (err) {
+      setError('No se pudo generar el análisis financiero. Reintenta en unos momentos.')
+    } finally {
+      setLoadingFinancials(false)
     }
   }
 
@@ -233,9 +253,23 @@ function ProjectDetailContent() {
                 >
                   {financials ? (
                     <FinancialDashboard analysis={financials} />
+                  ) : loadingFinancials ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-4">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600" />
+                      <p className="text-slate-500 font-medium animate-pulse">Generando proyecciones financieras...</p>
+                    </div>
                   ) : (
-                    <div className="flex justify-center items-center py-20">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                    <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                      <BarChart3 size={48} className="mx-auto text-slate-300 mb-4" />
+                      <h3 className="text-xl font-bold text-slate-800 mb-2">Análisis Financiero Pendiente</h3>
+                      <p className="text-slate-500 mb-6">Genera proyecciones automáticas a 3 años basadas en tu modelo de negocio.</p>
+                      <Button 
+                        onClick={handleGenerateFinancials}
+                        className="rounded-2xl px-8"
+                      >
+                        <Sparkles size={18} className="mr-2" />
+                        Generar Análisis Económico
+                      </Button>
                     </div>
                   )}
                 </motion.div>

@@ -12,13 +12,65 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
 
-  const categories = ['All', 'Tech', 'Agro', 'Services', 'Retail', 'Health']
+  const categories = ['Todos', 'Servicio', 'Consultoria', 'Digital', 'Otro']
+
+  const MOCK_PRODUCTS: MarketplaceProduct[] = [
+    {
+      id: 'mock-1',
+      projectId: 'p1',
+      projectName: 'EcoGrow',
+      ownerName: 'Ana García',
+      name: 'Sistema de Riego Inteligente',
+      description: 'Optimiza el uso de agua en tus cultivos usando sensores de humedad y clima.',
+      price: 150000,
+      category: 'Digital',
+      images: ['https://images.unsplash.com/photo-1558449028-b53a39d100fc?auto=format&fit=crop&q=80&w=800'],
+      visibility: true,
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'mock-2',
+      projectId: 'p2',
+      projectName: 'TechConsult',
+      ownerName: 'Juan Pérez',
+      name: 'Consultoría en Transformación Digital',
+      description: 'Ayudamos a pymes a digitalizar sus procesos de ventas y logística.',
+      price: 500000,
+      category: 'Consultoria',
+      images: ['https://images.unsplash.com/photo-1454165833762-0204b297df58?auto=format&fit=crop&q=80&w=800'],
+      visibility: true,
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'mock-3',
+      projectId: 'p3',
+      projectName: 'BioClean',
+      ownerName: 'Elena Martínez',
+      name: 'Jabones Biodegradables Premium',
+      description: 'Productos de limpieza 100% ecológicos hechos con aceites reciclados.',
+      price: 25000,
+      category: 'Servicio',
+      images: ['https://images.unsplash.com/photo-1605264964528-06403738d6dc?auto=format&fit=crop&q=80&w=800'],
+      visibility: true,
+      createdAt: new Date().toISOString()
+    }
+  ]
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true)
-      const data = await MarketplaceService.getProducts(activeCategory === 'All' ? undefined : activeCategory)
-      setProducts(data)
+      let data = await MarketplaceService.getProducts()
+      
+      // Si no hay productos en la DB, usamos los mocks
+      if (data.length === 0) {
+        data = MOCK_PRODUCTS
+      }
+
+      if (activeCategory === 'Todos') {
+        setProducts(data)
+      } else {
+        setProducts(data.filter(p => p.category === activeCategory))
+      }
       setLoading(false)
     }
     fetchProducts()

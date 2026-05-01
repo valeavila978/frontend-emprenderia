@@ -1,58 +1,63 @@
-import { MarketplaceProduct } from '../types';
 import { API_URL } from '@/config';
 
+export interface MarketplaceProduct {
+  id: string;
+  projectId: string;
+  projectName: string;
+  ownerName: string;
+  name: string;
+  description: string;
+  price: number;
+  category: 'Servicio' | 'Consultoria' | 'Digital' | 'Otro';
+  images: string[];
+  visibility: boolean;
+  createdAt: string;
+}
+
 export const MarketplaceService = {
-  getProducts: async (category?: string): Promise<MarketplaceProduct[]> => {
+  getProducts: async (): Promise<MarketplaceProduct[]> => {
     try {
-      const url = category ? `${API_URL}/marketplace?category=${category}` : `${API_URL}/marketplace`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        return getMockProducts();
-      }
-
+      const response = await fetch(`${API_URL}/Marketplace`);
+      if (!response.ok) throw new Error('Error al cargar el marketplace');
       return await response.json();
     } catch (error) {
-      console.warn('Backend connection failed, using mock data for marketplace');
-      return getMockProducts();
+      console.error('Error in getProducts:', error);
+      return [];
     }
   },
-};
 
-function getMockProducts(): MarketplaceProduct[] {
-  return [
-    {
-      id: '1',
-      title: 'Eco-Café de Altura',
-      description: 'Café orgánico cultivado con técnicas sostenibles en las montañas de Caldas.',
-      price: 25000,
-      category: 'Agro',
-      imageUrl: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&q=80&w=400',
-      entrepreneurId: 'e1',
-      entrepreneurName: 'Juan Pérez',
-      rating: 4.8
-    },
-    {
-      id: '2',
-      title: 'SmartFarm App',
-      description: 'Software de gestión para optimizar cultivos mediante sensores IoT.',
-      price: 150000,
-      category: 'Tech',
-      imageUrl: 'https://images.unsplash.com/photo-1560306612-99d8d64803b7?auto=format&fit=crop&q=80&w=400',
-      entrepreneurId: 'e2',
-      entrepreneurName: 'TechSeeds SAS',
-      rating: 4.5
-    },
-    {
-      id: '3',
-      title: 'Kit Robótica Educativa',
-      description: 'Herramientas interactivas para enseñar programación a niños en zonas rurales.',
-      price: 85000,
-      category: 'Retail',
-      imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=400',
-      entrepreneurId: 'e3',
-      entrepreneurName: 'EduInnovar',
-      rating: 4.9
-    }
-  ];
-}
+  createProduct: async (productData: any, token: string): Promise<any> => {
+    const response = await fetch(`${API_URL}/Products`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(productData)
+    });
+    if (!response.ok) throw new Error('Error al crear el producto');
+    return await response.json();
+  },
+
+  updateProduct: async (id: string, productData: any, token: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/Products/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ id, ...productData })
+    });
+    if (!response.ok) throw new Error('Error al actualizar el producto');
+  },
+
+  deleteProduct: async (id: string, token: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/Products/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) throw new Error('Error al eliminar el producto');
+  }
+};

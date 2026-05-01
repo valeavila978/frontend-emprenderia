@@ -123,14 +123,16 @@ export interface FinancialAnalysis {
 // Fase 6: Marketplace
 export interface MarketplaceProduct {
   id: string
-  title: string
+  projectId: string
+  projectName: string
+  ownerName: string
+  name: string
   description: string
   price: number
-  category: 'servicio' | 'consultoría' | 'digital' | 'otro'
-  imageUrl: string
-  entrepreneurId: string
-  entrepreneurName: string
-  rating: number
+  category: 'Servicio' | 'Consultoria' | 'Digital' | 'Otro'
+  images: string[]
+  visibility: boolean
+  createdAt: string
 }
 // Fase 4: Chatbot / Asistente IA
 export interface ChatMessage {

@@ -11,10 +11,10 @@ import { Button } from '@/components/Button'
 import Link from 'next/link'
 import { Project, FinancialAnalysis } from '@/types'
 import { FinancialDashboard } from '@/components/FinancialDashboard'
-import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles } from 'lucide-react'
+import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCart, Plus, Edit2, Check, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-type TabType = 'info' | 'bmc' | 'financial'
+type TabType = 'info' | 'bmc' | 'financial' | 'marketplace'
 
 function ProjectDetailContent() {
   const [project, setProject] = useState<Project | null>(null)
@@ -24,7 +24,14 @@ function ProjectDetailContent() {
   const [loading, setLoading] = useState(true)
   const [loadingIA, setLoadingIA] = useState(false)
   const [loadingFinancials, setLoadingFinancials] = useState(false)
+  const [isEditingProject, setIsEditingProject] = useState(false)
+  const [isEditingBmc, setIsEditingBmc] = useState(false)
+  const [isEditingFinancials, setIsEditingFinancials] = useState(false)
+  const [isAddingProduct, setIsAddingProduct] = useState(false)
+  const [productForm, setProductForm] = useState({ name: '', description: '', price: 0, category: 'Servicio', imageUrl: '' })
+  const [editForm, setEditForm] = useState({ title: '', description: '', stage: '' })
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const { token } = useAuth()
   const params = useParams()
   const projectId = params.id as string
@@ -35,6 +42,11 @@ function ProjectDetailContent() {
         if (!token) return
         const projectData = await ProjectService.getProjectById(projectId, token)
         setProject(projectData)
+        setEditForm({ 
+          title: projectData.title, 
+          description: projectData.description, 
+          stage: projectData.stage 
+        })
         
         // Cargar BMC si existe
         const bmcData = await ProjectService.getBmc(projectId, token)
@@ -101,6 +113,76 @@ function ProjectDetailContent() {
     if (tab === 'financial') loadFinancials()
   }
 
+  const handleUpdateProject = async () => {
+    if (!token || !project) return
+    try {
+      setLoading(true)
+      await ProjectService.updateProject(projectId, editForm, token)
+      const updated = await ProjectService.getProjectById(projectId, token)
+      setProject(updated)
+      setIsEditingProject(false)
+    } catch (err) {
+      setError('Error al actualizar el proyecto')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateBmc = async () => {
+    if (!token || !bmc) return
+    try {
+      setLoading(true)
+      await ProjectService.updateBmc(projectId, bmc, token)
+      setSuccess('BMC actualizado correctamente')
+      setIsEditingBmc(false)
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError('Error al actualizar el BMC')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddProduct = async () => {
+    if (!token) return
+    try {
+      setLoading(true)
+      const data = {
+        projectId,
+        name: productForm.name,
+        description: productForm.description,
+        price: productForm.price,
+        category: productForm.category,
+        images: [productForm.imageUrl].filter(Boolean)
+      }
+      const MarketplaceService = (await import('@/services/marketplaceService')).MarketplaceService
+      await MarketplaceService.createProduct(data, token)
+      setSuccess('Producto publicado en el marketplace')
+      setIsAddingProduct(false)
+      setProductForm({ name: '', description: '', price: 0, category: 'Servicio', imageUrl: '' })
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError('Error al publicar el producto')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateFinancials = async () => {
+    if (!token || !financials) return
+    try {
+      setLoading(true)
+      await FinancialService.updateAnalysis(projectId, financials, token)
+      setSuccess('Análisis financiero actualizado correctamente')
+      setIsEditingFinancials(false)
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError('Error al actualizar el análisis financiero')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-slate-50">
@@ -159,6 +241,15 @@ function ProjectDetailContent() {
                   </>
                 )}
               </motion.button>
+              
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsEditingProject(!isEditingProject)}
+                className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold bg-white/10 hover:bg-white/20 transition-all backdrop-blur-md border border-white/20"
+              >
+                {isEditingProject ? 'Cancelar' : 'Editar Proyecto'}
+              </motion.button>
             </div>
           </div>
 
@@ -182,10 +273,18 @@ function ProjectDetailContent() {
               icon={<BarChart3 size={18} />}
               label="Análisis Financiero"
             />
+            <TabButton 
+              active={activeTab === 'marketplace'} 
+              onClick={() => handleTabChange('marketplace')}
+              icon={<ShoppingCart size={18} />}
+              label="Marketplace"
+            />
           </div>
 
           {/* Content Area */}
           <div className="p-8 md:p-12">
+            {error && <Alert type="error" message={error} className="mb-6" />}
+            {success && <Alert type="success" message={success} className="mb-6" />}
             <AnimatePresence mode="wait">
               {activeTab === 'info' && (
                 <motion.div
@@ -197,9 +296,32 @@ function ProjectDetailContent() {
                 >
                   <div className="prose prose-slate max-w-none">
                     <h3 className="text-2xl font-bold text-slate-800 mb-4">Sobre este emprendimiento</h3>
-                    <p className="text-slate-600 text-lg leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                      {project?.description}
-                    </p>
+                    {isEditingProject ? (
+                      <div className="space-y-4 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-400 uppercase mb-2">Título</label>
+                          <input 
+                            value={editForm.title} 
+                            onChange={e => setEditForm({...editForm, title: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-bold text-slate-400 uppercase mb-2">Descripción</label>
+                          <textarea 
+                            value={editForm.description} 
+                            rows={4}
+                            onChange={e => setEditForm({...editForm, description: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 font-medium"
+                          />
+                        </div>
+                        <Button onClick={handleUpdateProject} className="w-full py-4">Guardar Cambios</Button>
+                      </div>
+                    ) : (
+                      <p className="text-slate-600 text-lg leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                        {project?.description}
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -224,21 +346,92 @@ function ProjectDetailContent() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-100 p-3 rounded-3xl border border-slate-200">
-                      <CanvasBlock title="Aliados Clave" items={bmc.keyPartners || bmc.key_partners} color="bg-white" className="md:row-span-2" />
-                      <div className="md:col-span-1 grid grid-rows-2 gap-3">
-                        <CanvasBlock title="Actividades Clave" items={bmc.keyActivities || bmc.key_activities} color="bg-white" />
-                        <CanvasBlock title="Recursos Clave" items={bmc.keyResources || bmc.key_resources} color="bg-white" />
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-slate-800">Modelo de Negocio (BMC)</h3>
+                        <Button 
+                          onClick={() => isEditingBmc ? handleUpdateBmc() : setIsEditingBmc(true)}
+                          className={`rounded-xl px-6 ${isEditingBmc ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-800'}`}
+                        >
+                          {isEditingBmc ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Canvas</>}
+                        </Button>
                       </div>
-                      <CanvasBlock title="Propuesta de Valor" items={bmc.valueProposition || bmc.value_proposition} color="bg-blue-50 border-blue-100" className="md:row-span-2" />
-                      <div className="md:col-span-1 grid grid-rows-2 gap-3">
-                        <CanvasBlock title="Relación con Clientes" items={bmc.customerRelationships || bmc.customer_relationships} color="bg-white" />
-                        <CanvasBlock title="Canales" items={bmc.channels} color="bg-white" />
+
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-100 p-3 rounded-3xl border border-slate-200">
+                        <CanvasBlock 
+                          title="Aliados Clave" 
+                          content={bmc.keyPartners || bmc.key_partners} 
+                          isEditing={isEditingBmc}
+                          onChange={(val: string) => setBmc({...bmc, keyPartners: val})}
+                          color="bg-white" 
+                          className="md:row-span-2" 
+                        />
+                        <div className="md:col-span-1 grid grid-rows-2 gap-3">
+                          <CanvasBlock 
+                            title="Actividades Clave" 
+                            content={bmc.keyActivities || bmc.key_activities} 
+                            isEditing={isEditingBmc}
+                            onChange={(val: string) => setBmc({...bmc, keyActivities: val})}
+                            color="bg-white" 
+                          />
+                          <CanvasBlock 
+                            title="Recursos Clave" 
+                            content={bmc.keyResources || bmc.key_resources} 
+                            isEditing={isEditingBmc}
+                            onChange={(val: string) => setBmc({...bmc, keyResources: val})}
+                            color="bg-white" 
+                          />
+                        </div>
+                        <CanvasBlock 
+                          title="Propuesta de Valor" 
+                          content={bmc.valueProposition || bmc.value_proposition} 
+                          isEditing={isEditingBmc}
+                          onChange={(val: string) => setBmc({...bmc, valueProposition: val})}
+                          color="bg-blue-50 border-blue-100" 
+                          className="md:row-span-2" 
+                        />
+                        <div className="md:col-span-1 grid grid-rows-2 gap-3">
+                          <CanvasBlock 
+                            title="Relación con Clientes" 
+                            content={bmc.customerRelationships || bmc.customer_relationships} 
+                            isEditing={isEditingBmc}
+                            onChange={(val: string) => setBmc({...bmc, customerRelationships: val})}
+                            color="bg-white" 
+                          />
+                          <CanvasBlock 
+                            title="Canales" 
+                            content={bmc.channels} 
+                            isEditing={isEditingBmc}
+                            onChange={(val: string) => setBmc({...bmc, channels: val})}
+                            color="bg-white" 
+                          />
+                        </div>
+                        <CanvasBlock 
+                          title="Segmentos de Clientes" 
+                          content={bmc.customerSegments || bmc.customer_segments} 
+                          isEditing={isEditingBmc}
+                          onChange={(val: string) => setBmc({...bmc, customerSegments: val})}
+                          color="bg-white" 
+                          className="md:row-span-2" 
+                        />
+                        <CanvasBlock 
+                          title="Estructura de Costos" 
+                          content={bmc.costStructure || bmc.cost_structure} 
+                          isEditing={isEditingBmc}
+                          onChange={(val: string) => setBmc({...bmc, costStructure: val})}
+                          color="bg-white" 
+                          className="md:col-span-2" 
+                        />
+                        <div className="hidden md:block" />
+                        <CanvasBlock 
+                          title="Fuentes de Ingresos" 
+                          content={bmc.revenueStreams || bmc.revenue_streams} 
+                          isEditing={isEditingBmc}
+                          onChange={(val: string) => setBmc({...bmc, revenueStreams: val})}
+                          color="bg-white" 
+                          className="md:col-span-2" 
+                        />
                       </div>
-                      <CanvasBlock title="Segmentos de Clientes" items={bmc.customerSegments || bmc.customer_segments} color="bg-white" className="md:row-span-2" />
-                      <CanvasBlock title="Estructura de Costos" items={bmc.costStructure || bmc.cost_structure} color="bg-white" className="md:col-span-2" />
-                      <div className="hidden md:block" />
-                      <CanvasBlock title="Fuentes de Ingresos" items={bmc.revenueStreams || bmc.revenue_streams} color="bg-white" className="md:col-span-2" />
                     </div>
                   )}
                 </motion.div>
@@ -252,7 +445,22 @@ function ProjectDetailContent() {
                   exit={{ opacity: 0 }}
                 >
                   {financials ? (
-                    <FinancialDashboard analysis={financials} />
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-slate-800">Proyecciones IA</h3>
+                        <Button 
+                          onClick={() => isEditingFinancials ? handleUpdateFinancials() : setIsEditingFinancials(true)}
+                          className={`rounded-xl px-6 ${isEditingFinancials ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-800'}`}
+                        >
+                          {isEditingFinancials ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Proyecciones</>}
+                        </Button>
+                      </div>
+                      <FinancialDashboard 
+                        analysis={financials} 
+                        isEditing={isEditingFinancials}
+                        onChange={(updated) => setFinancials(updated)}
+                      />
+                    </div>
                   ) : loadingFinancials ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                       <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600" />
@@ -261,17 +469,128 @@ function ProjectDetailContent() {
                   ) : (
                     <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                       <BarChart3 size={48} className="mx-auto text-slate-300 mb-4" />
-                      <h3 className="text-xl font-bold text-slate-800 mb-2">Análisis Financiero Pendiente</h3>
-                      <p className="text-slate-500 mb-6">Genera proyecciones automáticas a 3 años basadas en tu modelo de negocio.</p>
-                      <Button 
-                        onClick={handleGenerateFinancials}
-                        className="rounded-2xl px-8"
-                      >
-                        <Sparkles size={18} className="mr-2" />
-                        Generar Análisis Económico
-                      </Button>
+                      <h3 className="text-xl font-bold text-slate-800 mb-2">Análisis Financiero No Encontrado</h3>
+                      <p className="text-slate-500 mb-6">Es posible que el análisis aún se esté procesando o no se haya generado.</p>
+                      <div className="flex justify-center gap-4">
+                        <Button 
+                          onClick={handleGenerateFinancials}
+                          className="rounded-2xl px-8"
+                        >
+                          <Sparkles size={18} className="mr-2" />
+                          Generar Análisis
+                        </Button>
+                        <Button 
+                          onClick={() => { setFinancials(null); loadFinancials(); }}
+                          className="rounded-2xl px-8 bg-slate-200 text-slate-700 hover:bg-slate-300"
+                        >
+                          Actualizar
+                        </Button>
+                      </div>
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {activeTab === 'marketplace' && (
+                <motion.div
+                  key="marketplace"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-800">Marketplace del Proyecto</h3>
+                      <p className="text-slate-500">Publica tus servicios o productos para conectar con clientes.</p>
+                    </div>
+                    <Button 
+                      onClick={() => setIsAddingProduct(!isAddingProduct)}
+                      className="rounded-2xl"
+                    >
+                      {isAddingProduct ? <><X size={18} className="mr-2"/> Cancelar</> : <><Plus size={18} className="mr-2"/> Publicar Producto</>}
+                    </Button>
+                  </div>
+
+                  {isAddingProduct && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="bg-slate-50 p-8 rounded-3xl border border-slate-200 overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nombre del Producto/Servicio</label>
+                            <input 
+                              value={productForm.name}
+                              onChange={e => setProductForm({...productForm, name: e.target.value})}
+                              placeholder="Ej: Consultoría en Marketing"
+                              className="w-full bg-white border-slate-200 rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Categoría</label>
+                            <select 
+                              value={productForm.category}
+                              onChange={e => setProductForm({...productForm, category: e.target.value})}
+                              className="w-full bg-white border-slate-200 rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="Servicio">Servicio</option>
+                              <option value="Consultoria">Consultoría</option>
+                              <option value="Digital">Digital</option>
+                              <option value="Otro">Otro</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Precio ($)</label>
+                            <input 
+                              type="number"
+                              value={productForm.price}
+                              onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}
+                              className="w-full bg-white border-slate-200 rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">URL de Imagen</label>
+                            <input 
+                              value={productForm.imageUrl}
+                              onChange={e => setProductForm({...productForm, imageUrl: e.target.value})}
+                              placeholder="https://..."
+                              className="w-full bg-white border-slate-200 rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Descripción</label>
+                            <textarea 
+                              value={productForm.description}
+                              onChange={e => setProductForm({...productForm, description: e.target.value})}
+                              rows={4}
+                              placeholder="Describe lo que ofreces..."
+                              className="w-full bg-white border-slate-200 rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-8 flex justify-end">
+                        <Button onClick={handleAddProduct} className="px-12 py-4 rounded-2xl shadow-lg shadow-blue-500/20">
+                          Publicar ahora
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div className="bg-blue-50 p-8 rounded-3xl border border-blue-100 flex items-center gap-6">
+                    <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-600">
+                      <ShoppingCart size={32} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold text-slate-800">Tus productos aparecen en el Marketplace general</h4>
+                      <p className="text-slate-500">Cualquier usuario de la plataforma podrá ver y contactarte a través de esta sección.</p>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -302,17 +621,30 @@ function TabButton({ active, onClick, icon, label }: any) {
   )
 }
 
-function CanvasBlock({ title, items, color, className = "" }: any) {
+function CanvasBlock({ title, content, color, isEditing, onChange, className = "" }: any) {
+  // Convertir a array si es necesario para visualización
+  const items = Array.isArray(content) ? content : (content?.split('\n').filter((l: string) => l.trim()) || [])
+
   return (
-    <div className={`${color} p-5 border border-slate-200 rounded-2xl shadow-sm ${className} hover:shadow-md transition-shadow`}>
+    <div className={`${color} p-5 border border-slate-200 rounded-2xl shadow-sm ${className} hover:shadow-md transition-shadow flex flex-col`}>
       <h3 className="font-black text-[10px] text-slate-400 uppercase mb-4 tracking-widest">{title}</h3>
-      <ul className="space-y-3">
-        {items?.map((item: string, index: number) => (
-          <li key={index} className="text-xs leading-relaxed text-slate-700 flex gap-2 font-medium">
-            <span className="text-blue-400 mt-1">•</span> {item}
-          </li>
-        ))}
-      </ul>
+      {isEditing ? (
+        <textarea
+          value={Array.isArray(content) ? content.join('\n') : content}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 w-full bg-slate-50/50 border-none rounded-xl p-3 text-xs leading-relaxed focus:ring-1 focus:ring-blue-500 outline-none resize-none min-h-[100px]"
+          placeholder={`Ingresa ${title.toLowerCase()}...`}
+        />
+      ) : (
+        <ul className="space-y-3">
+          {items.map((item: string, index: number) => (
+            <li key={index} className="text-xs leading-relaxed text-slate-700 flex gap-2 font-medium">
+              <span className="text-blue-400 mt-1">•</span> {item}
+            </li>
+          ))}
+          {items.length === 0 && <li className="text-xs text-slate-400 italic">No definido</li>}
+        </ul>
+      )}
     </div>
   )
 }

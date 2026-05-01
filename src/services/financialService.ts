@@ -38,5 +38,17 @@ export const FinancialService = {
       console.error('Error in generateAnalysis:', error);
       throw error;
     }
+  },
+
+  updateAnalysis: async (projectId: string, analysisData: any, token: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/financial/projects/${projectId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ projectId, ...analysisData })
+    });
+    if (!response.ok) throw new Error('Error al actualizar el análisis');
   }
 };

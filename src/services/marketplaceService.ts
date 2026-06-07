@@ -15,9 +15,13 @@ export interface MarketplaceProduct {
 }
 
 export const MarketplaceService = {
-  getProducts: async (): Promise<MarketplaceProduct[]> => {
+  getProducts: async (token: string): Promise<MarketplaceProduct[]> => {
     try {
-      const response = await fetch(`${API_URL}/Marketplace`);
+      const response = await fetch(`${API_URL}/Marketplace`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Error al cargar el marketplace');
       return await response.json();
     } catch (error) {

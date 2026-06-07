@@ -1,80 +1,50 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MarketplaceProduct } from '@/types'
+import { MarketplaceProduct } from '@/types'; import { useAuth } from '@/context/AuthContext'
 import { MarketplaceService } from '@/services/marketplaceService'
 import { ProductCard } from '@/components/ProductCard'
 import { Search, Filter, Sparkles, ShoppingBag } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function MarketplacePage() {
-  const [products, setProducts] = useState<MarketplaceProduct[]>([])
+  const { token } = useAuth(); const [products, setProducts] = useState<MarketplaceProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
 
-  const categories = ['Todos', 'Servicio', 'Consultoria', 'Digital', 'Otro']
-
-  const MOCK_PRODUCTS: MarketplaceProduct[] = [
-    {
-      id: 'mock-1',
-      projectId: 'p1',
-      projectName: 'EcoGrow',
-      ownerName: 'Ana García',
-      name: 'Sistema de Riego Inteligente',
-      description: 'Optimiza el uso de agua en tus cultivos usando sensores de humedad y clima.',
-      price: 150000,
-      category: 'Digital',
-      images: ['https://images.unsplash.com/photo-1558449028-b53a39d100fc?auto=format&fit=crop&q=80&w=800'],
-      visibility: true,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'mock-2',
-      projectId: 'p2',
-      projectName: 'TechConsult',
-      ownerName: 'Juan Pérez',
-      name: 'Consultoría en Transformación Digital',
-      description: 'Ayudamos a pymes a digitalizar sus procesos de ventas y logística.',
-      price: 500000,
-      category: 'Consultoria',
-      images: ['https://images.unsplash.com/photo-1454165833762-0204b297df58?auto=format&fit=crop&q=80&w=800'],
-      visibility: true,
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'mock-3',
-      projectId: 'p3',
-      projectName: 'BioClean',
-      ownerName: 'Elena Martínez',
-      name: 'Jabones Biodegradables Premium',
-      description: 'Productos de limpieza 100% ecológicos hechos con aceites reciclados.',
-      price: 25000,
-      category: 'Servicio',
-      images: ['https://images.unsplash.com/photo-1605264964528-06403738d6dc?auto=format&fit=crop&q=80&w=800'],
-      visibility: true,
-      createdAt: new Date().toISOString()
-    }
-  ]
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchProducts = async () => {
+      if (!token) return
       setLoading(true)
-      let data = await MarketplaceService.getProducts()
-      
-      // Si no hay productos en la DB, usamos los mocks
-      if (data.length === 0) {
-        data = MOCK_PRODUCTS
+      setError('')
+      try {
+        const data = await MarketplaceService.getProducts(token)
+        if (activeCategory === 'Todos' || activeCategory === 'All') {
+          setProducts(data)
+        } else {
+          // Normalize to compare with backend string enums e.g. "Servicio", "Consultoria", "Digital", "Otro"
+          const categoryMap: { [key: string]: string } = {
+            'Servicio': 'Servicio',
+            'Consultoria': 'Consultoria',
+            'Digital': 'Digital',
+            'Otro': 'Otro'
+          }
+          const target = categoryMap[activeCategory] || activeCategory
+          setProducts(data.filter(p => p.category === target))
+        }
+      } catch (err) {
+        console.error('Error fetching marketplace products:', err)
+        setError('No se pudieron cargar los productos del marketplace.')
+      } finally {
+        setLoading(false)
       }
-
-      if (activeCategory === 'Todos') {
-        setProducts(data)
-      } else {
-        setProducts(data.filter(p => p.category === activeCategory))
-      }
-      setLoading(false)
     }
     fetchProducts()
-  }, [activeCategory])
+  }, [activeCategory, token])
+
+  const categories = ['Todos', 'Servicio', 'Consultoria', 'Digital', 'Otro']
 
   return (
     <div className="min-h-screen bg-[#f8fafc] py-12">
@@ -107,6 +77,13 @@ export default function MarketplacePage() {
             </div>
           </div>
 
+          {/* Error display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-2xl border border-red-100 font-bold">
+              {error}
+            </div>
+          )}
+
           {/* Search and Filter Bar */}
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-grow w-full">
@@ -122,14 +99,14 @@ export default function MarketplacePage() {
               {categories.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => setActiveCategory(cat === 'Todos' ? 'All' : cat)}
                   className={`px-6 py-4 rounded-2xl font-bold whitespace-nowrap transition-all ${
-                    activeCategory === cat 
+                    (activeCategory === 'All' && cat === 'Todos') || activeCategory === cat
                       ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20' 
                       : 'bg-white text-slate-500 hover:bg-slate-50'
                   }`}
                 >
-                  {cat === 'All' ? 'Todos' : cat}
+                  {cat}
                 </button>
               ))}
             </div>

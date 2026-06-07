@@ -6,12 +6,14 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { useAuth } from '@/context/AuthContext'
 import { ProjectService } from '@/services/projectService'
 import { FinancialService } from '@/services/financialService'
+import { MatchingService, MatchDto } from '@/services/matchingService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
 import Link from 'next/link'
 import { Project, FinancialAnalysis } from '@/types'
 import { FinancialDashboard } from '@/components/FinancialDashboard'
-import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCart, Plus, Edit2, Check, X } from 'lucide-react'
+import { SemaforoFinanciero } from '@/components/SemaforoFinanciero'
+import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCart, Plus, Edit2, Check, X, Zap, Users } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 type TabType = 'info' | 'bmc' | 'financial' | 'marketplace'
@@ -28,8 +30,10 @@ function ProjectDetailContent() {
   const [isEditingBmc, setIsEditingBmc] = useState(false)
   const [isEditingFinancials, setIsEditingFinancials] = useState(false)
   const [isAddingProduct, setIsAddingProduct] = useState(false)
-  const [productForm, setProductForm] = useState({ name: '', description: '', price: 0, category: 'Servicio', imageUrl: '' })
+  const [productForm, setProductForm] = useState({ name: '', description: '', price: 0, category: 'Otro', imageUrl: '' })
   const [editForm, setEditForm] = useState({ title: '', description: '', stage: '' })
+  const [matches, setMatches] = useState<MatchDto[]>([])
+  const [loadingMatches, setLoadingMatches] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const { token } = useAuth()
@@ -111,6 +115,39 @@ function ProjectDetailContent() {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab)
     if (tab === 'financial') loadFinancials()
+    if (tab === 'marketplace') loadProjectMatches()
+  }
+
+  const loadProjectMatches = async () => {
+    if (!token || loadingMatches) return
+    setLoadingMatches(true)
+    try {
+      const data = await MatchingService.getProjectMatches(projectId, token)
+      setMatches(data)
+    } catch {
+      // Silently ignore — no matches yet
+    } finally {
+      setLoadingMatches(false)
+    }
+  }
+
+  const handleGenerateMatches = async () => {
+    if (!token) return
+    const bmcText = bmc
+      ? Object.values(bmc).filter(Boolean).join(' ')
+      : project?.description ?? ''
+    setLoadingMatches(true)
+    setError('')
+    try {
+      const result = await MatchingService.generateMatches(projectId, bmcText, token)
+      setSuccess(result.message)
+      setTimeout(() => setSuccess(''), 4000)
+      await loadProjectMatches()
+    } catch {
+      setError('No se pudieron generar los matches. Verifica que el microservicio de IA esté activo.')
+    } finally {
+      setLoadingMatches(false)
+    }
   }
 
   const handleUpdateProject = async () => {
@@ -152,15 +189,15 @@ function ProjectDetailContent() {
         name: productForm.name,
         description: productForm.description,
         price: productForm.price,
-        category: productForm.category,
+        category: productForm.category, // Backend classifies automatically if Category is ProductCategory.Otro
         images: [productForm.imageUrl].filter(Boolean)
       }
-      const MarketplaceService = (await import('@/services/marketplaceService')).MarketplaceService
+      const { MarketplaceService } = await import('@/services/marketplaceService')
       await MarketplaceService.createProduct(data, token)
-      setSuccess('Producto publicado en el marketplace')
+      setSuccess('Producto publicado en el marketplace exitosamente. La IA lo clasificará automáticamente si seleccionaste "Otro".')
       setIsAddingProduct(false)
-      setProductForm({ name: '', description: '', price: 0, category: 'Servicio', imageUrl: '' })
-      setTimeout(() => setSuccess(''), 3000)
+      setProductForm({ name: '', description: '', price: 0, category: 'Otro', imageUrl: '' })
+      setTimeout(() => setSuccess(''), 4000)
     } catch (err) {
       setError('Error al publicar el producto')
     } finally {
@@ -347,17 +384,34 @@ function ProjectDetailContent() {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-xl font-bold text-slate-800">Modelo de Negocio (BMC)</h3>
-                        <Button 
-                          onClick={() => isEditingBmc ? handleUpdateBmc() : setIsEditingBmc(true)}
-                          className={`rounded-xl px-6 ${isEditingBmc ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-800'}`}
-                        >
-                          {isEditingBmc ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Canvas</>}
-                        </Button>
+                      <div className="flex justify-between items-center bg-slate-900 rounded-3xl p-6 text-white shadow-xl shadow-slate-900/20">
+                        <div>
+                          <h3 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">Modelo de Negocio (BMC)</h3>
+                          <p className="text-slate-400 mt-1">
+                            {bmc.differential_name && <span className="font-bold text-indigo-300">Diferencial: {bmc.differential_name}</span>}
+                          </p>
+                        </div>
+                        <div className="flex gap-4">
+                          <Button 
+                            onClick={() => handleGenerateIA()}
+                            className="rounded-xl px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/30 border-0"
+                          >
+                            <Zap size={18} className="mr-2" /> Optimizar con IA
+                          </Button>
+                          <Button 
+                            onClick={() => isEditingBmc ? handleUpdateBmc() : setIsEditingBmc(true)}
+                            className={`rounded-xl px-6 border-0 ${isEditingBmc ? 'bg-green-500 hover:bg-green-400 text-slate-900 shadow-lg shadow-green-500/30' : 'bg-slate-700 hover:bg-slate-600'}`}
+                          >
+                            {isEditingBmc ? <><Check size={18} className="mr-2"/> Guardar</> : <><Edit2 size={18} className="mr-2"/> Editar</>}
+                          </Button>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-100 p-3 rounded-3xl border border-slate-200">
+                      <div className="relative">
+                        {/* Background for Glassmorphism */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-3xl -z-10" />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-2">
                         <CanvasBlock 
                           title="Aliados Clave" 
                           content={bmc.keyPartners || bmc.key_partners} 
@@ -433,6 +487,7 @@ function ProjectDetailContent() {
                         />
                       </div>
                     </div>
+                    </div>
                   )}
                 </motion.div>
               )}
@@ -455,6 +510,9 @@ function ProjectDetailContent() {
                           {isEditingFinancials ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Proyecciones</>}
                         </Button>
                       </div>
+                      
+                      <SemaforoFinanciero isViable={financials.isViable ?? (financials as any).is_viable} />
+
                       <FinancialDashboard 
                         analysis={financials} 
                         isEditing={isEditingFinancials}
@@ -591,6 +649,76 @@ function ProjectDetailContent() {
                       <p className="text-slate-500">Cualquier usuario de la plataforma podrá ver y contactarte a través de esta sección.</p>
                     </div>
                   </div>
+
+                  {/* AI Matching Section */}
+                  <div className="mt-8 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                          <Users size={22} className="text-indigo-500" />
+                          Matches con Mentores e Inversores
+                        </h4>
+                        <p className="text-slate-500 text-sm">La IA analiza tu BMC y encuentra los perfiles más compatibles.</p>
+                      </div>
+                      <Button
+                        onClick={handleGenerateMatches}
+                        disabled={loadingMatches}
+                        className="rounded-2xl px-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 shadow-lg shadow-indigo-500/30"
+                      >
+                        {loadingMatches
+                          ? <><span className="animate-spin mr-2">⌛</span>Calculando...</>
+                          : <><Sparkles size={18} className="mr-2" />Buscar Matches con IA</>
+                        }
+                      </Button>
+                    </div>
+
+                    {loadingMatches && matches.length === 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[1, 2, 3].map(n => (
+                          <div key={n} className="bg-slate-100 rounded-2xl h-24 animate-pulse" />
+                        ))}
+                      </div>
+                    )}
+
+                    {!loadingMatches && matches.length === 0 && (
+                      <div className="text-center py-12 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <Users size={40} className="mx-auto text-slate-300 mb-3" />
+                        <p className="text-slate-500 font-medium">Aún no hay matches. Usa el botón para que la IA encuentre mentores e inversores compatibles.</p>
+                      </div>
+                    )}
+
+                    {matches.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {matches.map(match => (
+                          <motion.div
+                            key={match.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-lg ${
+                                match.investorName?.toLowerCase().includes('mentor') ? 'bg-purple-500' : 'bg-blue-500'
+                              }`}>
+                                {match.investorName?.[0] ?? 'M'}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-800 text-sm">{match.investorName ?? 'Perfil Compatibles'}</p>
+                                <p className="text-xs text-slate-400">{new Date(match.createdAt).toLocaleDateString('es-CO')}</p>
+                              </div>
+                            </div>
+                            <div className={`px-4 py-1 rounded-full font-black text-sm ${
+                              match.matchScore >= 85 ? 'bg-green-100 text-green-700' :
+                              match.matchScore >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {match.matchScore.toFixed(0)}%
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -626,23 +754,23 @@ function CanvasBlock({ title, content, color, isEditing, onChange, className = "
   const items = Array.isArray(content) ? content : (content?.split('\n').filter((l: string) => l.trim()) || [])
 
   return (
-    <div className={`${color} p-5 border border-slate-200 rounded-2xl shadow-sm ${className} hover:shadow-md transition-shadow flex flex-col`}>
-      <h3 className="font-black text-[10px] text-slate-400 uppercase mb-4 tracking-widest">{title}</h3>
+    <div className={`bg-white/40 backdrop-blur-md p-5 border border-white/60 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ${className} hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:bg-white/60 transition-all flex flex-col`}>
+      <h3 className="font-black text-[11px] text-slate-500 uppercase mb-4 tracking-widest">{title}</h3>
       {isEditing ? (
         <textarea
           value={Array.isArray(content) ? content.join('\n') : content}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 w-full bg-slate-50/50 border-none rounded-xl p-3 text-xs leading-relaxed focus:ring-1 focus:ring-blue-500 outline-none resize-none min-h-[100px]"
+          className="flex-1 w-full bg-white/50 border border-white rounded-2xl p-4 text-sm font-medium leading-relaxed focus:ring-2 focus:ring-blue-500 outline-none resize-none min-h-[120px]"
           placeholder={`Ingresa ${title.toLowerCase()}...`}
         />
       ) : (
         <ul className="space-y-3">
           {items.map((item: string, index: number) => (
-            <li key={index} className="text-xs leading-relaxed text-slate-700 flex gap-2 font-medium">
-              <span className="text-blue-400 mt-1">•</span> {item}
+            <li key={index} className="text-sm leading-relaxed text-slate-800 flex gap-3 font-medium bg-white/40 p-3 rounded-2xl">
+              <span className="text-blue-500 font-bold">•</span> {item}
             </li>
           ))}
-          {items.length === 0 && <li className="text-xs text-slate-400 italic">No definido</li>}
+          {items.length === 0 && <li className="text-sm text-slate-400 italic font-medium p-3">No definido</li>}
         </ul>
       )}
     </div>

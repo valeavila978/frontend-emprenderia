@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { MarketplaceProduct } from '@/types'; import { useAuth } from '@/context/AuthContext'
 import { MarketplaceService } from '@/services/marketplaceService'
 import { ProductCard } from '@/components/ProductCard'
-import { Search, Filter, Sparkles, ShoppingBag } from 'lucide-react'
+import { Search, Filter, Sparkles, ShoppingBag, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function MarketplacePage() {
   const { token } = useAuth(); const [products, setProducts] = useState<MarketplaceProduct[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('All')
 
@@ -126,7 +127,13 @@ export default function MarketplacePage() {
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div
+                key={product.id}
+                onClick={() => setSelectedProduct(product)}
+                className="cursor-pointer"
+              >
+                <ProductCard product={product} />
+              </div>
             ))}
           </motion.div>
         )}
@@ -140,6 +147,51 @@ export default function MarketplacePage() {
             <p className="text-slate-500">Prueba ajustando tus filtros o términos de búsqueda.</p>
           </div>
         )}
+
+        {selectedProduct ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-sm">
+            <div className="relative w-full max-w-3xl rounded-[32px] border border-white/10 bg-white/10 shadow-2xl shadow-slate-900/40 backdrop-blur-xl overflow-hidden">
+              <button
+                onClick={() => setSelectedProduct(null)}
+                className="absolute right-5 top-5 text-slate-200 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+              <div className="p-10 bg-gradient-to-br from-white/10 to-slate-100/10">
+                <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <p className="uppercase tracking-[0.3em] text-xs font-semibold text-sky-200">{selectedProduct.category}</p>
+                      <h2 className="text-4xl font-black text-white">{selectedProduct.name}</h2>
+                      <p className="text-slate-300 leading-8">{selectedProduct.description}</p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-slate-900/10">
+                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Precio</p>
+                      <p className="mt-3 text-5xl font-black text-white">${selectedProduct.price.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-slate-900/10">
+                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Emprendedor</p>
+                      <p className="mt-3 text-lg font-bold text-white">{selectedProduct.ownerName}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 shadow-xl shadow-slate-900/20">
+                    <p className="text-sm text-slate-300">Conecta directamente con el emprendedor y comienza la conversación con toda la información necesaria.</p>
+                    <a
+                      href={`mailto:${selectedProduct.ownerEmail || 'contacto@emprendeia.com'}?subject=${encodeURIComponent(`Interés en ${selectedProduct.name}`)}`}
+                      className="inline-flex w-full items-center justify-center rounded-3xl bg-slate-900 px-6 py-4 text-center text-white font-bold shadow-lg shadow-slate-900/30 hover:bg-slate-800 transition-all"
+                    >
+                      Contactar Emprendedor
+                    </a>
+                    <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-5 text-slate-300">
+                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400 mb-2">Descripción extendida</p>
+                      <p className="leading-7 text-slate-200">{selectedProduct.description}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

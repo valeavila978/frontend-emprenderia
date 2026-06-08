@@ -126,6 +126,7 @@ export interface MarketplaceProduct {
   projectId: string
   projectName: string
   ownerName: string
+  ownerEmail?: string
   name: string
   description: string
   price: number

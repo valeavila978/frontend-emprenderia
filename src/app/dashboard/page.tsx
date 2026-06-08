@@ -114,64 +114,42 @@ function DashboardContent() {
             <div className="bg-slate-800/50 backdrop-blur-md rounded-3xl p-8 border border-slate-700/50">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <Activity className="text-blue-400" /> Proyectos Recientes
+                  <Activity className="text-blue-400" /> Proyectos Recomendados
                 </h2>
                 <Link href="/projects" className="text-blue-400 hover:text-blue-300 font-medium text-sm">Ver todos →</Link>
               </div>
 
               <div className="space-y-4">
-                {/* Simulated Project Card */}
-                <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-white">FinTech App</h3>
-                      <p className="text-slate-400 text-sm mt-1">Plataforma de pagos B2B</p>
+                {matches.length > 0 ? (
+                  matches.map((m) => (
+                    <div key={m.id} className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600 transition-all cursor-pointer">
+                      <div className="flex justify-between items-start mb-4 gap-4">
+                        <div>
+                          <h3 className="text-xl font-bold text-white">{m.projectTitle}</h3>
+                          <p className="text-slate-400 text-sm mt-1">Match con {m.investorName || 'perfil compatible'}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          m.matchScore >= 85
+                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/30'
+                            : m.matchScore >= 70
+                            ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30'
+                            : 'bg-slate-700/20 text-slate-200 border border-slate-700/30'
+                        }`}>
+                          {m.matchScore.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="text-slate-400 text-sm">
+                        <p>Proyecto recomendado por IA basado en compatibilidad directa.</p>
+                        <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">{new Date(m.createdAt).toLocaleDateString('es-CO')}</p>
+                      </div>
                     </div>
-                    <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold border border-blue-500/30">
-                      Prototipo
-                    </span>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-slate-700/50 bg-slate-900/40 p-8 text-center text-slate-400">
+                    <p className="text-lg font-semibold text-white mb-3">Aún no hay recomendaciones de IA</p>
+                    <p className="text-sm">Conecta tu proyecto y deja que la IA genere matches con mentores e inversionistas reales.</p>
                   </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-slate-500 mb-2 font-medium">
-                      {STAGES.map(s => <span key={s} className={s === 'Prototipo' ? 'text-blue-400' : ''}>{s}</span>)}
-                    </div>
-                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-1000"
-                        style={{ width: getProgressWidth('Prototipo') }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Simulated Project Card 2 */}
-                <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50 hover:border-slate-600 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-white">EcoDelivery</h3>
-                      <p className="text-slate-400 text-sm mt-1">Logística sustentable de última milla</p>
-                    </div>
-                    <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-bold border border-indigo-500/30">
-                      MVP
-                    </span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-slate-500 mb-2 font-medium">
-                      {STAGES.map(s => <span key={s} className={s === 'MVP' ? 'text-indigo-400' : ''}>{s}</span>)}
-                    </div>
-                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000"
-                        style={{ width: getProgressWidth('MVP') }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
+                )}
               </div>
             </div>
           </div>

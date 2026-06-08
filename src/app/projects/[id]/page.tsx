@@ -1,22 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type DragEvent } from 'react'
 import { useParams } from 'next/navigation'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { useAuth } from '@/context/AuthContext'
 import { ProjectService } from '@/services/projectService'
 import { FinancialService } from '@/services/financialService'
+import { BusinessPlanService } from '@/services/businessPlanService'
 import { MatchingService, MatchDto } from '@/services/matchingService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
+import TiptapEditor from '@/components/TiptapEditor'
 import Link from 'next/link'
 import { Project, FinancialAnalysis } from '@/types'
 import { FinancialDashboard } from '@/components/FinancialDashboard'
 import { SemaforoFinanciero } from '@/components/SemaforoFinanciero'
-import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCart, Plus, Edit2, Check, X, Zap, Users } from 'lucide-react'
+import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCart, Plus, Edit2, Check, X, Zap, Users, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { API_URL } from '@/config'
 
-type TabType = 'info' | 'bmc' | 'financial' | 'marketplace'
+type TabType = 'info' | 'bmc' | 'businessPlan' | 'financial' | 'marketplace'
 
 function ProjectDetailContent() {
   const [project, setProject] = useState<Project | null>(null)
@@ -31,6 +34,13 @@ function ProjectDetailContent() {
   const [isEditingFinancials, setIsEditingFinancials] = useState(false)
   const [isAddingProduct, setIsAddingProduct] = useState(false)
   const [productForm, setProductForm] = useState({ name: '', description: '', price: 0, category: 'Otro', imageUrl: '' })
+  const [businessPlan, setBusinessPlan] = useState('')
+  const [loadingBusinessPlan, setLoadingBusinessPlan] = useState(false)
+  const [isGeneratingBusinessPlan, setIsGeneratingBusinessPlan] = useState(false)
+  const [isSavingBusinessPlan, setIsSavingBusinessPlan] = useState(false)
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [isDragActive, setIsDragActive] = useState(false)
+  const [documentMessage, setDocumentMessage] = useState('')
   const [editForm, setEditForm] = useState({ title: '', description: '', stage: '' })
   const [matches, setMatches] = useState<MatchDto[]>([])
   const [loadingMatches, setLoadingMatches] = useState(false)
@@ -39,6 +49,11 @@ function ProjectDetailContent() {
   const { token } = useAuth()
   const params = useParams()
   const projectId = params.id as string
+
+  const stage = project?.stage || ''
+  const isIdeation = stage === 'Idea' || stage === 'Ideación'
+  const financialLocked = isIdeation
+  const marketplaceLocked = isIdeation || stage === 'Prototipo'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,7 +67,6 @@ function ProjectDetailContent() {
           stage: projectData.stage 
         })
         
-        // Cargar BMC si existe
         const bmcData = await ProjectService.getBmc(projectId, token)
         if (bmcData) {
           setBmc(bmcData)
@@ -66,6 +80,23 @@ function ProjectDetailContent() {
 
     fetchData()
   }, [token, projectId])
+
+  useEffect(() => {
+    const fetchBusinessPlan = async () => {
+      try {
+        if (!token) return
+        setLoadingBusinessPlan(true)
+        const planData = await BusinessPlanService.getBusinessPlan(projectId, token)
+        setBusinessPlan(planData?.content ?? '')
+      } catch (err) {
+        console.warn('No hay plan de negocios disponible aún', err)
+      } finally {
+        setLoadingBusinessPlan(false)
+      }
+    }
+
+    fetchBusinessPlan()
+  }, [projectId, token])
 
   const loadFinancials = async () => {
     if (!token || financials || loadingFinancials) return
@@ -113,9 +144,94 @@ function ProjectDetailContent() {
   }
 
   const handleTabChange = (tab: TabType) => {
+    if ((tab === 'financial' && financialLocked) || (tab === 'marketplace' && marketplaceLocked)) return
     setActiveTab(tab)
     if (tab === 'financial') loadFinancials()
     if (tab === 'marketplace') loadProjectMatches()
+  }
+
+  const handleGenerateBusinessPlan = async () => {
+    if (!token) return
+    setIsGeneratingBusinessPlan(true)
+    setError('')
+    try {
+      const data = await BusinessPlanService.generateBusinessPlan(projectId, token)
+      setBusinessPlan(data?.content ?? '')
+      setSuccess('Plan de negocios generado con éxito por la IA')
+      setActiveTab('businessPlan')
+      setTimeout(() => setSuccess(''), 4000)
+    } catch (err) {
+      setError('No se pudo generar el plan de negocios. Verifica el microservicio de IA.')
+    } finally {
+      setIsGeneratingBusinessPlan(false)
+    }
+  }
+
+  const handleSaveBusinessPlan = async () => {
+    if (!token) return
+    setIsSavingBusinessPlan(true)
+    setError('')
+    try {
+      await BusinessPlanService.updateBusinessPlan(projectId, businessPlan, token)
+      setSuccess('Plan de negocios guardado correctamente')
+      setTimeout(() => setSuccess(''), 4000)
+    } catch {
+      setError('No se pudo guardar el plan de negocios')
+    } finally {
+      setIsSavingBusinessPlan(false)
+    }
+  }
+
+  const handleDocumentUpload = async (file: File) => {
+    if (!token) return
+    setIsUploadingDocument(true)
+    setError('')
+    setDocumentMessage('')
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await fetch(`${API_URL}/projects/${projectId}/documents`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Error en la carga del documento')
+      }
+
+      setDocumentMessage('Documento analizado con éxito por la IA')
+      setSuccess('Documento analizado con éxito por la IA')
+      setTimeout(() => setSuccess(''), 4000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir el documento')
+    } finally {
+      setIsUploadingDocument(false)
+    }
+  }
+
+  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragActive(false)
+    const file = event.dataTransfer.files[0]
+    if (!file) return
+    if (!/\.(pdf|txt|docx)$/i.test(file.name)) {
+      setError('Solo se aceptan archivos PDF, TXT o DOCX')
+      return
+    }
+    await handleDocumentUpload(file)
+  }
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragActive(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragActive(false)
   }
 
   const loadProjectMatches = async () => {
@@ -256,10 +372,18 @@ function ProjectDetailContent() {
                   {project?.title}
                 </motion.h1>
                 <div className="flex items-center gap-2 text-blue-100 bg-white/10 px-4 py-1 rounded-full w-fit backdrop-blur-sm border border-white/10">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <span className="text-sm font-medium">Estado: Fase de Ideación</span>
+                  <span className="w-2 h-2 rounded-full animate-pulse" />
+                  <span className="text-sm font-medium">Estado: {stage || 'Sin etapa definida'}</span>
                 </div>
               </div>
+              {isIdeation && (
+                <div className="mt-6 rounded-3xl bg-gradient-to-r from-sky-600 to-indigo-700 text-white p-6 shadow-xl shadow-slate-900/20 border border-white/10">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-100 mb-3">Fase de Ideación</p>
+                  <p className="text-base leading-7">
+                    Estás en fase de Ideación. Completa tu BMC para avanzar a Prototipo y validar tu negocio.
+                  </p>
+                </div>
+              )}
               <motion.button 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -305,30 +429,38 @@ function ProjectDetailContent() {
               label="Business Canvas"
             />
             <TabButton 
+              active={activeTab === 'businessPlan'} 
+              onClick={() => handleTabChange('businessPlan')}
+              icon={<Sparkles size={18} />}
+              label="Plan de Negocios"
+            />
+            <TabButton 
               active={activeTab === 'financial'} 
               onClick={() => handleTabChange('financial')}
               icon={<BarChart3 size={18} />}
               label="Análisis Financiero"
+              disabled={financialLocked}
             />
             <TabButton 
               active={activeTab === 'marketplace'} 
               onClick={() => handleTabChange('marketplace')}
               icon={<ShoppingCart size={18} />}
               label="Marketplace"
+              disabled={marketplaceLocked}
             />
           </div>
 
           {/* Content Area */}
           <div className="p-8 md:p-12">
-            {error && <Alert type="error" message={error} className="mb-6" />}
-            {success && <Alert type="success" message={success} className="mb-6" />}
+            {error && <Alert type="error" message={error} />}
+            {success && <Alert type="success" message={success} />}
             <AnimatePresence mode="wait">
               {activeTab === 'info' && (
                 <motion.div
                   key="info"
-                  initial={{ opacity: 0, opacity: 0 }}
-                  animate={{ opacity: 1, opacity: 1 }}
-                  exit={{ opacity: 0, opacity: 0 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                   className="space-y-6"
                 >
                   <div className="prose prose-slate max-w-none">
@@ -355,9 +487,31 @@ function ProjectDetailContent() {
                         <Button onClick={handleUpdateProject} className="w-full py-4">Guardar Cambios</Button>
                       </div>
                     ) : (
-                      <p className="text-slate-600 text-lg leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                        {project?.description}
-                      </p>
+                      <>
+                        <p className="text-slate-600 text-lg leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                          {project?.description}
+                        </p>
+                        <div className="mt-8">
+                          <h4 className="text-lg font-bold text-slate-800 mb-3">Subir documento para análisis de IA</h4>
+                          <div
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            className={`rounded-3xl border-2 border-dashed p-10 text-center transition ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'} ${isUploadingDocument ? 'opacity-60' : ''}`}
+                          >
+                            <p className="text-slate-500 text-sm mb-4">Arrastra un archivo PDF, TXT o DOCX aquí para que la IA lo analice.</p>
+                            <p className="text-slate-400 text-xs">También puedes hacer clic y soltar el archivo directamente.</p>
+                            {isUploadingDocument && (
+                              <p className="text-blue-600 font-semibold mt-4">Subiendo documento...</p>
+                            )}
+                          </div>
+                          {documentMessage && (
+                            <div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-700 font-medium">
+                              {documentMessage}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </motion.div>
@@ -492,6 +646,51 @@ function ProjectDetailContent() {
                 </motion.div>
               )}
 
+              {activeTab === 'businessPlan' && (
+                <motion.div
+                  key="businessPlan"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-4 bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-900/20">
+                    <div>
+                      <h3 className="text-2xl font-black">Plan de Negocios</h3>
+                      <p className="text-slate-300 mt-2">Gestiona el plan y genera contenido con IA para avanzar tu modelo de negocio.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                      <Button
+                        onClick={handleGenerateBusinessPlan}
+                        disabled={isGeneratingBusinessPlan}
+                        className="rounded-2xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white"
+                      >
+                        {isGeneratingBusinessPlan ? 'Generando...' : 'Generar Plan con IA'}
+                      </Button>
+                      <Button
+                        onClick={handleSaveBusinessPlan}
+                        disabled={isSavingBusinessPlan}
+                        className="rounded-2xl bg-green-500 text-slate-900"
+                      >
+                        {isSavingBusinessPlan ? 'Guardando...' : 'Guardar Cambios'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {loadingBusinessPlan ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600" />
+                    </div>
+                  ) : (
+                    <TiptapEditor
+                      content={businessPlan}
+                      onChange={setBusinessPlan}
+                      label="Editor de Plan de Negocios"
+                    />
+                  )}
+                </motion.div>
+              )}
+
               {activeTab === 'financial' && (
                 <motion.div
                   key="financial"
@@ -511,7 +710,7 @@ function ProjectDetailContent() {
                         </Button>
                       </div>
                       
-                      <SemaforoFinanciero isViable={financials.isViable ?? (financials as any).is_viable} />
+                      <SemaforoFinanciero isViable={true} />
 
                       <FinancialDashboard 
                         analysis={financials} 
@@ -729,17 +928,19 @@ function ProjectDetailContent() {
   )
 }
 
-function TabButton({ active, onClick, icon, label }: any) {
+function TabButton({ active, onClick, icon, label, disabled }: any) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`flex items-center gap-2 py-6 px-6 font-bold text-sm transition-all relative ${
-        active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+        disabled ? 'text-slate-300 cursor-not-allowed opacity-70' : active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
       }`}
     >
       {icon}
       <span className="hidden md:inline">{label}</span>
-      {active && (
+      {disabled ? <Lock size={16} className="text-slate-300" /> : null}
+      {active && !disabled && (
         <motion.div 
           layoutId="activeTab" 
           className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600 rounded-t-full" 
@@ -784,4 +985,4 @@ export default function ProjectDetailPage() {
     </ProtectedRoute>
   )
 }
-
+

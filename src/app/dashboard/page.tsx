@@ -62,15 +62,26 @@ function DashboardContent() {
             </h1>
             <p className="text-slate-400 mt-2">Bienvenido de nuevo, {user?.email}</p>
           </div>
-          <Link href="/projects/create">
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-500/30 transition-all"
-            >
-              <Plus size={20} /> Nuevo Proyecto
-            </motion.button>
-          </Link>
+          {user?.role !== 'Investor' && user?.role !== 'Mentor' ? (
+            <Link href="/projects/create">
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-500/30 transition-all"
+              >
+                <Plus size={20} /> Nuevo Proyecto
+              </motion.button>
+            </Link>
+          ) : (
+            <div className="flex gap-3">
+              <Link href="/projects" className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 text-white font-bold">
+                Explorar Startups
+              </Link>
+              <Link href="/marketplace" className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 text-white font-bold">
+                Marketplace
+              </Link>
+            </div>
+          )}
         </header>
 
         {/* Bento Grid */}

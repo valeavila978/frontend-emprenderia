@@ -63,6 +63,7 @@ export interface AuthContextType {
 export interface Project {
   id: string
   ownerId: string
+  ownerEmail?: string
   title: string
   description: string
   stage: string
@@ -148,4 +149,39 @@ export interface ChatSession {
   title: string
   messages: ChatMessage[]
   createdAt: string
+}
+
+// Milestones
+export interface Milestone {
+  id: string
+  projectId: string
+  title: string
+  isCompleted: boolean
+  targetDate?: string | null
+}
+
+// Forum
+export interface ForumTopic {
+  id: string
+  title: string
+  content: string
+  creatorId: string
+  createdAt: string
+}
+
+export interface ForumReply {
+  id: string
+  topicId: string
+  content: string
+  creatorId: string
+  createdAt: string
+}
+
+// Resources
+export interface ResourceItem {
+  id: string
+  title: string
+  description: string
+  url?: string
+  tags?: string[]
 }

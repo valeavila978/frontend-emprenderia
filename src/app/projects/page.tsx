@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { useAuth } from '@/context/AuthContext'
 import { ProjectService } from '@/services/projectService'
+import { FinancialService } from '@/services/financialService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
 import Link from 'next/link'
@@ -13,7 +14,8 @@ function ProjectsContent() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const [analysisMap, setAnalysisMap] = useState<Record<string, any>>({})
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -22,6 +24,18 @@ function ProjectsContent() {
         if (!token) return
         const data = await ProjectService.getProjects(token)
         setProjects(data)
+        // If viewer (mentor/investor) fetch basic financials map for listed projects
+        const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
+        if (isViewer && data && data.length) {
+          const slice = data.slice(0, 20)
+          const promises = slice.map((p: Project) => FinancialService.getAnalysisByProjectId(p.id, token))
+          const results = await Promise.all(promises)
+          const map: Record<string, any> = {}
+          slice.forEach((p: Project, idx: number) => {
+            map[p.id] = results[idx]
+          })
+          setAnalysisMap(map)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al cargar proyectos')
       } finally {
@@ -31,6 +45,8 @@ function ProjectsContent() {
 
     fetchProjects()
   }, [token])
+
+  const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
 
   if (loading) {
     return (
@@ -48,13 +64,18 @@ function ProjectsContent() {
       <div className="max-w-6xl mx-auto px-4">
         {/* Encabezado */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">📊 Mis Proyectos</h1>
-          <Link
-            href="/projects/create"
-            className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            ➕ Nuevo Proyecto
-          </Link>
+          <h1 className="text-4xl font-bold text-gray-800">{isViewer ? '🔎 Explorar Startups' : '📊 Mis Proyectos'}</h1>
+          {!isViewer && (
+            <Link
+              href="/projects/create"
+              className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              ➕ Nuevo Proyecto
+            </Link>
+          )}
+          {isViewer && (
+            <div className="inline-block text-sm text-slate-500">Explora startups públicas en la plataforma</div>
+          )}
         </div>
 
         {/* Alertas */}
@@ -81,12 +102,18 @@ function ProjectsContent() {
                 key={project.id}
                 className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow"
               >
-                <h3 className="text-xl font-bold text-gray-800 mb-2">{project.title}</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xl font-bold text-gray-800">{project.title}</h3>
+                  <span className="text-xs uppercase font-bold text-slate-500 px-3 py-1 rounded-full bg-slate-100">{project.stage}</span>
+                </div>
                 <p className="text-gray-600 mb-4 line-clamp-3">{project.description}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">
-                    📅 {new Date(project.createdAt).toLocaleDateString()}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500 flex items-center gap-4">
+                    <span>📅 {new Date(project.createdAt).toLocaleDateString()}</span>
+                    {analysisMap[project.id] ? (
+                      <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-bold">Análisis disponible</span>
+                    ) : null}
+                  </div>
                   <Link
                     href={`/projects/${project.id}`}
                     className="text-blue-600 hover:underline font-medium"

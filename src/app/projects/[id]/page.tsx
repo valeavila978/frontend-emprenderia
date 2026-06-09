@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext'
 import { ProjectService } from '@/services/projectService'
 import { FinancialService } from '@/services/financialService'
 import { BusinessPlanService } from '@/services/businessPlanService'
+import { MilestoneService } from '@/services/milestoneService'
+import { ResourcesService } from '@/services/resourcesService'
 import { MatchingService, MatchDto } from '@/services/matchingService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
@@ -19,7 +21,7 @@ import { LayoutDashboard, FileText, BarChart3, ChevronLeft, Sparkles, ShoppingCa
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_URL } from '@/config'
 
-type TabType = 'info' | 'bmc' | 'businessPlan' | 'financial' | 'marketplace'
+type TabType = 'info' | 'bmc' | 'businessPlan' | 'milestones' | 'resources' | 'financial' | 'marketplace'
 
 function ProjectDetailContent() {
   const [project, setProject] = useState<Project | null>(null)
@@ -41,14 +43,21 @@ function ProjectDetailContent() {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false)
   const [isDragActive, setIsDragActive] = useState(false)
   const [documentMessage, setDocumentMessage] = useState('')
+  const [milestones, setMilestones] = useState<any[]>([])
+  const [loadingMilestones, setLoadingMilestones] = useState(false)
+  const [newMilestoneTitle, setNewMilestoneTitle] = useState('')
+  const [newMilestoneDate, setNewMilestoneDate] = useState('')
+  const [resources, setResources] = useState<any[]>([])
+  const [loadingResources, setLoadingResources] = useState(false)
   const [editForm, setEditForm] = useState({ title: '', description: '', stage: '' })
   const [matches, setMatches] = useState<MatchDto[]>([])
   const [loadingMatches, setLoadingMatches] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const params = useParams()
   const projectId = params.id as string
+  const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
 
   const stage = project?.stage || ''
   const isIdeation = stage === 'Idea' || stage === 'Ideación'
@@ -148,6 +157,62 @@ function ProjectDetailContent() {
     setActiveTab(tab)
     if (tab === 'financial') loadFinancials()
     if (tab === 'marketplace') loadProjectMatches()
+    if (tab === 'milestones') loadMilestones()
+    if (tab === 'resources') loadResources()
+  }
+
+  const loadMilestones = async () => {
+    if (!token || loadingMilestones) return
+    setLoadingMilestones(true)
+    try {
+      const data = await MilestoneService.getMilestones(projectId, token)
+      setMilestones(data)
+    } catch (err) {
+      console.warn('No se pudieron cargar los hitos', err)
+      setMilestones([])
+    } finally {
+      setLoadingMilestones(false)
+    }
+  }
+
+  const handleCreateMilestone = async () => {
+    if (!token || !newMilestoneTitle) return
+    try {
+      setLoading(true)
+      const created = await MilestoneService.createMilestone(projectId, newMilestoneTitle, newMilestoneDate || null, token)
+      setMilestones(prev => [created, ...prev])
+      setNewMilestoneTitle('')
+      setNewMilestoneDate('')
+    } catch (err) {
+      setError('No se pudo crear el hito')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggleMilestone = async (mId: string) => {
+    if (!token) return
+    try {
+      await MilestoneService.toggleMilestone(projectId, mId, token)
+      // optimistic refresh
+      setMilestones(prev => prev.map(m => m.id === mId ? { ...m, isCompleted: !m.isCompleted } : m))
+    } catch (err) {
+      setError('No se pudo actualizar el hito')
+    }
+  }
+
+  const loadResources = async () => {
+    if (!token || loadingResources) return
+    setLoadingResources(true)
+    try {
+      const data = await ResourcesService.getResources(project?.stage ?? null, token)
+      setResources(data)
+    } catch (err) {
+      console.warn('Error loading resources', err)
+      setResources([])
+    } finally {
+      setLoadingResources(false)
+    }
   }
 
   const handleGenerateBusinessPlan = async () => {
@@ -384,33 +449,42 @@ function ProjectDetailContent() {
                   </p>
                 </div>
               )}
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGenerateIA}
-                disabled={loadingIA}
-                className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold transition-all ${
-                  loadingIA ? 'bg-white/20' : 'bg-white text-blue-600 hover:shadow-2xl hover:shadow-white/20'
-                } backdrop-blur-md shadow-lg`}
-              >
-                {loadingIA ? (
-                  <>⌛ Analizando...</>
-                ) : (
-                  <>
-                    <Sparkles size={20} />
-                    Analizar con IA
-                  </>
-                )}
-              </motion.button>
-              
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsEditingProject(!isEditingProject)}
-                className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold bg-white/10 hover:bg-white/20 transition-all backdrop-blur-md border border-white/20"
-              >
-                {isEditingProject ? 'Cancelar' : 'Editar Proyecto'}
-              </motion.button>
+              {!isViewer && (
+                <>
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleGenerateIA}
+                    disabled={loadingIA}
+                    className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold transition-all ${
+                      loadingIA ? 'bg-white/20' : 'bg-white text-blue-600 hover:shadow-2xl hover:shadow-white/20'
+                    } backdrop-blur-md shadow-lg`}
+                  >
+                    {loadingIA ? (
+                      <>⌛ Analizando...</>
+                    ) : (
+                      <>
+                        <Sparkles size={20} />
+                        Analizar con IA
+                      </>
+                    )}
+                  </motion.button>
+                  
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsEditingProject(!isEditingProject)}
+                    className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold bg-white/10 hover:bg-white/20 transition-all backdrop-blur-md border border-white/20"
+                  >
+                    {isEditingProject ? 'Cancelar' : 'Editar Proyecto'}
+                  </motion.button>
+                </>
+              )}
+              {isViewer && (
+                <div className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm bg-white/10"> 
+                  <a href={`mailto:${project?.ownerEmail || 'contacto@emprendeia.com'}?subject=${encodeURIComponent('Interés en ' + (project?.title || 'tu proyecto'))}`} className="text-blue-600 font-bold">Contactar Emprendedor</a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -433,6 +507,18 @@ function ProjectDetailContent() {
               onClick={() => handleTabChange('businessPlan')}
               icon={<Sparkles size={18} />}
               label="Plan de Negocios"
+            />
+            <TabButton 
+              active={activeTab === 'milestones'} 
+              onClick={() => handleTabChange('milestones')}
+              icon={<Plus size={16} />}
+              label="Hitos"
+            />
+            <TabButton 
+              active={activeTab === 'resources'} 
+              onClick={() => handleTabChange('resources')}
+              icon={<LayoutDashboard size={16} />}
+              label="Recursos"
             />
             <TabButton 
               active={activeTab === 'financial'} 
@@ -517,6 +603,73 @@ function ProjectDetailContent() {
                 </motion.div>
               )}
 
+              {activeTab === 'milestones' && (
+                <motion.div key="milestones" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold">Hitos del Proyecto</h3>
+                      <p className="text-slate-500">Gestiona y marca los hitos alcanzados.</p>
+                    </div>
+                    {!isViewer && (
+                      <div className="flex items-center gap-3">
+                        <input value={newMilestoneTitle} onChange={e => setNewMilestoneTitle(e.target.value)} placeholder="Título del hito" className="p-3 rounded-xl border" />
+                        <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} className="p-3 rounded-xl border" />
+                        <Button onClick={handleCreateMilestone} className="rounded-2xl">Añadir Hito</Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {loadingMilestones ? (
+                    <div className="py-10 text-center">Cargando hitos...</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {milestones.length === 0 && <div className="text-slate-500">No hay hitos</div>}
+                      {milestones.map(m => (
+                        <div key={m.id} className="flex items-center justify-between bg-white p-4 rounded-2xl border">
+                          <div className="flex items-center gap-4">
+                            <input type="checkbox" checked={m.isCompleted} onChange={() => handleToggleMilestone(m.id)} disabled={isViewer} />
+                            <div>
+                              <div className="font-bold">{m.title}</div>
+                              {m.targetDate && <div className="text-xs text-slate-400">Para: {new Date(m.targetDate).toLocaleDateString()}</div>}
+                            </div>
+                          </div>
+                          <div className="text-sm text-slate-500">{m.isCompleted ? 'Completado' : 'Pendiente'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === 'resources' && (
+                <motion.div key="resources" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold">Recursos Educativos</h3>
+                      <p className="text-slate-500">Material recomendado según la fase de tu proyecto.</p>
+                    </div>
+                    <div>
+                      <Button onClick={loadResources} className="rounded-2xl">Actualizar</Button>
+                    </div>
+                  </div>
+
+                  {loadingResources ? (
+                    <div className="py-10 text-center">Cargando recursos...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {resources.length === 0 && <div className="text-slate-500">No se encontraron recursos para esta fase.</div>}
+                      {resources.map(r => (
+                        <div key={r.id} className="bg-white p-4 rounded-2xl border">
+                          <h4 className="font-bold mb-2">{r.title}</h4>
+                          <p className="text-sm text-slate-600 mb-4">{r.description}</p>
+                          {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold">Ver recurso</a>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
               {activeTab === 'bmc' && (
                 <motion.div
                   key="bmc"
@@ -546,18 +699,22 @@ function ProjectDetailContent() {
                           </p>
                         </div>
                         <div className="flex gap-4">
-                          <Button 
-                            onClick={() => handleGenerateIA()}
-                            className="rounded-xl px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/30 border-0"
-                          >
-                            <Zap size={18} className="mr-2" /> Optimizar con IA
-                          </Button>
-                          <Button 
-                            onClick={() => isEditingBmc ? handleUpdateBmc() : setIsEditingBmc(true)}
-                            className={`rounded-xl px-6 border-0 ${isEditingBmc ? 'bg-green-500 hover:bg-green-400 text-slate-900 shadow-lg shadow-green-500/30' : 'bg-slate-700 hover:bg-slate-600'}`}
-                          >
-                            {isEditingBmc ? <><Check size={18} className="mr-2"/> Guardar</> : <><Edit2 size={18} className="mr-2"/> Editar</>}
-                          </Button>
+                          {!isViewer ? (
+                            <>
+                              <Button 
+                                onClick={() => handleGenerateIA()}
+                                className="rounded-xl px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg shadow-purple-500/30 border-0"
+                              >
+                                <Zap size={18} className="mr-2" /> Optimizar con IA
+                              </Button>
+                              <Button 
+                                onClick={() => isEditingBmc ? handleUpdateBmc() : setIsEditingBmc(true)}
+                                className={`rounded-xl px-6 border-0 ${isEditingBmc ? 'bg-green-500 hover:bg-green-400 text-slate-900 shadow-lg shadow-green-500/30' : 'bg-slate-700 hover:bg-slate-600'}`}
+                              >
+                                {isEditingBmc ? <><Check size={18} className="mr-2"/> Guardar</> : <><Edit2 size={18} className="mr-2"/> Editar</>}
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
 
@@ -660,20 +817,24 @@ function ProjectDetailContent() {
                       <p className="text-slate-300 mt-2">Gestiona el plan y genera contenido con IA para avanzar tu modelo de negocio.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                      <Button
-                        onClick={handleGenerateBusinessPlan}
-                        disabled={isGeneratingBusinessPlan}
-                        className="rounded-2xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white"
-                      >
-                        {isGeneratingBusinessPlan ? 'Generando...' : 'Generar Plan con IA'}
-                      </Button>
-                      <Button
-                        onClick={handleSaveBusinessPlan}
-                        disabled={isSavingBusinessPlan}
-                        className="rounded-2xl bg-green-500 text-slate-900"
-                      >
-                        {isSavingBusinessPlan ? 'Guardando...' : 'Guardar Cambios'}
-                      </Button>
+                        {!isViewer && (
+                          <>
+                            <Button
+                              onClick={handleGenerateBusinessPlan}
+                              disabled={isGeneratingBusinessPlan}
+                              className="rounded-2xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white"
+                            >
+                              {isGeneratingBusinessPlan ? 'Generando...' : 'Generar Plan con IA'}
+                            </Button>
+                            <Button
+                              onClick={handleSaveBusinessPlan}
+                              disabled={isSavingBusinessPlan}
+                              className="rounded-2xl bg-green-500 text-slate-900"
+                            >
+                              {isSavingBusinessPlan ? 'Guardando...' : 'Guardar Cambios'}
+                            </Button>
+                          </>
+                        )}
                     </div>
                   </div>
 
@@ -685,6 +846,7 @@ function ProjectDetailContent() {
                     <TiptapEditor
                       content={businessPlan}
                       onChange={setBusinessPlan}
+                      editable={!isViewer}
                       label="Editor de Plan de Negocios"
                     />
                   )}
@@ -702,12 +864,14 @@ function ProjectDetailContent() {
                     <div className="space-y-6">
                       <div className="flex justify-between items-center">
                         <h3 className="text-xl font-bold text-slate-800">Proyecciones IA</h3>
-                        <Button 
-                          onClick={() => isEditingFinancials ? handleUpdateFinancials() : setIsEditingFinancials(true)}
-                          className={`rounded-xl px-6 ${isEditingFinancials ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-800'}`}
-                        >
-                          {isEditingFinancials ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Proyecciones</>}
-                        </Button>
+                        {!isViewer && (
+                          <Button 
+                            onClick={() => isEditingFinancials ? handleUpdateFinancials() : setIsEditingFinancials(true)}
+                            className={`rounded-xl px-6 ${isEditingFinancials ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-800'}`}
+                          >
+                            {isEditingFinancials ? <><Check size={18} className="mr-2"/> Guardar Cambios</> : <><Edit2 size={18} className="mr-2"/> Editar Proyecciones</>}
+                          </Button>
+                        )}
                       </div>
                       
                       <SemaforoFinanciero isViable={true} />
@@ -761,12 +925,14 @@ function ProjectDetailContent() {
                       <h3 className="text-2xl font-bold text-slate-800">Marketplace del Proyecto</h3>
                       <p className="text-slate-500">Publica tus servicios o productos para conectar con clientes.</p>
                     </div>
-                    <Button 
-                      onClick={() => setIsAddingProduct(!isAddingProduct)}
-                      className="rounded-2xl"
-                    >
-                      {isAddingProduct ? <><X size={18} className="mr-2"/> Cancelar</> : <><Plus size={18} className="mr-2"/> Publicar Producto</>}
-                    </Button>
+                    {!isViewer && (
+                      <Button 
+                        onClick={() => setIsAddingProduct(!isAddingProduct)}
+                        className="rounded-2xl"
+                      >
+                        {isAddingProduct ? <><X size={18} className="mr-2"/> Cancelar</> : <><Plus size={18} className="mr-2"/> Publicar Producto</>}
+                      </Button>
+                    )}
                   </div>
 
                   {isAddingProduct && (

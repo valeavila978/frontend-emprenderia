@@ -1,3 +1,6 @@
 export { AuthService } from './authService'
 export { ProjectService } from './projectService'
 export { BusinessPlanService } from './businessPlanService'
+export { MilestoneService } from './milestoneService'
+export { ForumService } from './forumService'
+export { ResourcesService } from './resourcesService'

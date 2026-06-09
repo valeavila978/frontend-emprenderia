@@ -16,13 +16,22 @@ export function Navigation() {
     router.push('/')
   }
 
-  const navLinks = [
-    { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { href: '/projects', label: 'Proyectos', icon: <Rocket size={18} /> },
-    { href: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={18} /> },
-    { href: '/profile', label: 'Mi Perfil', icon: <UserIcon size={18} /> },
-    { href: '/assistant', label: 'Asistente IA', icon: <Bot size={18} /> },
-  ]
+  const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
+
+  const navLinks = isViewer
+    ? [
+        { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { href: '/projects', label: 'Explorar Startups', icon: <Rocket size={18} /> },
+        { href: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={18} /> },
+        { href: '/profile', label: 'Mi Perfil', icon: <UserIcon size={18} /> },
+      ]
+    : [
+        { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { href: '/projects', label: 'Proyectos', icon: <Rocket size={18} /> },
+        { href: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={18} /> },
+        { href: '/profile', label: 'Mi Perfil', icon: <UserIcon size={18} /> },
+        { href: '/assistant', label: 'Asistente IA', icon: <Bot size={18} /> },
+      ]
 
   return (
     <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">

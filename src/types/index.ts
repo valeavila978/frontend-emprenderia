@@ -66,6 +66,11 @@ export interface Project {
   ownerEmail?: string
   title: string
   description: string
+  what: string
+  how: string
+  why: string
+  projectType: string
+  businessModelType: string
   stage: string
   status: string
   createdAt: string
@@ -157,7 +162,7 @@ export interface Milestone {
   projectId: string
   title: string
   isCompleted: boolean
-  targetDate?: string | null
+  dueDate?: string | null
 }
 
 // Forum

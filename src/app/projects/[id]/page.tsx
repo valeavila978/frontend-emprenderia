@@ -23,6 +23,26 @@ import { API_URL } from '@/config'
 
 type TabType = 'info' | 'bmc' | 'businessPlan' | 'milestones' | 'resources' | 'financial' | 'marketplace'
 
+type ProjectUpdatePayload = {
+  id: string
+  title: string
+  description: string
+  what: string
+  how: string
+  why: string
+  projectType: string
+  businessModelType: string
+  stage: string
+}
+
+const stageOptions = [
+  { value: 'Idea', label: 'Idea' },
+  { value: 'Validacion', label: 'Validación' },
+  { value: 'Prototipo', label: 'Prototipo' },
+  { value: 'Tracción', label: 'Tracción' },
+  { value: 'Crecimiento', label: 'Crecimiento' }
+]
+
 function ProjectDetailContent() {
   const [project, setProject] = useState<Project | null>(null)
   const [bmc, setBmc] = useState<any>(null)
@@ -63,6 +83,43 @@ function ProjectDetailContent() {
   const isIdeation = stage === 'Idea' || stage === 'Ideación'
   const financialLocked = isIdeation
   const marketplaceLocked = isIdeation || stage === 'Prototipo'
+
+  const buildProjectUpdatePayload = (updatedStage?: string): ProjectUpdatePayload => {
+    if (!project) {
+      throw new Error('Project not loaded')
+    }
+
+    return {
+      id: projectId,
+      title: editForm.title,
+      description: editForm.description,
+      what: project.what ?? '',
+      how: project.how ?? '',
+      why: project.why ?? '',
+      projectType: project.projectType ?? 'Producto',
+      businessModelType: project.businessModelType ?? 'Necesidad',
+      stage: updatedStage ?? editForm.stage ?? project.stage
+    }
+  }
+
+  const handleChangeStage = async (newStage: string) => {
+    if (!token || !project) return
+    setError('')
+    const prev = project.stage
+    try {
+      // optimistic update
+      setProject({ ...project, stage: newStage })
+      setEditForm({ ...editForm, stage: newStage })
+      await ProjectService.updateProject(projectId, buildProjectUpdatePayload(newStage), token)
+      setSuccess('Etapa actualizada')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      // revert
+      setProject({ ...project, stage: prev })
+      setEditForm({ ...editForm, stage: prev })
+      setError('No se pudo actualizar la etapa')
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -193,9 +250,12 @@ function ProjectDetailContent() {
   const handleToggleMilestone = async (mId: string) => {
     if (!token) return
     try {
+      // determine current and next value for optimistic update
+      const current = milestones.find(m => m.id === mId)
+      const next = !current?.isCompleted
       await MilestoneService.toggleMilestone(projectId, mId, token)
       // optimistic refresh
-      setMilestones(prev => prev.map(m => m.id === mId ? { ...m, isCompleted: !m.isCompleted } : m))
+      setMilestones(prev => prev.map(m => m.id === mId ? { ...m, isCompleted: next } : m))
     } catch (err) {
       setError('No se pudo actualizar el hito')
     }
@@ -335,9 +395,14 @@ function ProjectDetailContent() {
     if (!token || !project) return
     try {
       setLoading(true)
-      await ProjectService.updateProject(projectId, editForm, token)
+      await ProjectService.updateProject(projectId, buildProjectUpdatePayload(), token)
       const updated = await ProjectService.getProjectById(projectId, token)
       setProject(updated)
+      setEditForm({
+        title: updated.title,
+        description: updated.description,
+        stage: updated.stage
+      })
       setIsEditingProject(false)
     } catch (err) {
       setError('Error al actualizar el proyecto')
@@ -479,6 +544,24 @@ function ProjectDetailContent() {
                     {isEditingProject ? 'Cancelar' : 'Editar Proyecto'}
                   </motion.button>
                 </>
+              )}
+              {/* Stage selector */}
+              {!isViewer && (
+                <div className="flex items-center ml-4">
+                  <select
+                    aria-label="Cambiar etapa del proyecto"
+                    value={project?.stage || ''}
+                    onChange={(e) => handleChangeStage(e.target.value)}
+                    className="rounded-xl px-4 py-3 bg-white text-sm font-semibold text-slate-700 border border-slate-200"
+                  >
+                    <option value="">Sin etapa</option>
+                    {stageOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
               {isViewer && (
                 <div className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm bg-white/10"> 
@@ -630,7 +713,7 @@ function ProjectDetailContent() {
                             <input type="checkbox" checked={m.isCompleted} onChange={() => handleToggleMilestone(m.id)} disabled={isViewer} />
                             <div>
                               <div className="font-bold">{m.title}</div>
-                              {m.targetDate && <div className="text-xs text-slate-400">Para: {new Date(m.targetDate).toLocaleDateString()}</div>}
+                              {m.dueDate && <div className="text-xs text-slate-400">Para: {new Date(m.dueDate).toLocaleDateString()}</div>}
                             </div>
                           </div>
                           <div className="text-sm text-slate-500">{m.isCompleted ? 'Completado' : 'Pendiente'}</div>

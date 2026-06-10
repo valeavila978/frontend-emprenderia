@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
@@ -21,12 +21,19 @@ const normalizeContent = (value: string) => {
 }
 
 export default function TiptapEditor({ content, onChange, editable = true, className = '', label }: TiptapEditorProps) {
+  const lastHtml = useRef<string>('')
+
   const editor = useEditor({
     editable,
     extensions: [StarterKit],
-    content: normalizeContent(content),
+    content: content ? content : '<p></p>',
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange(editor.getText())
+      const html = editor.getHTML()
+      if (lastHtml.current !== html) {
+        lastHtml.current = html
+        onChange(html)
+      }
     },
     editorProps: {
       attributes: {
@@ -36,10 +43,8 @@ export default function TiptapEditor({ content, onChange, editable = true, class
   })
 
   useEffect(() => {
-    if (!editor) return
-    const normalized = normalizeContent(content)
-    if (editor.getHTML() !== normalized) {
-      editor.commands.setContent(normalized)
+    if (editor && content !== undefined && editor.getHTML() !== content) {
+      editor.commands.setContent(content)
     }
   }, [content, editor])
 

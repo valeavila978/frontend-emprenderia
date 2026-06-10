@@ -5,7 +5,7 @@ export interface Milestone {
   projectId: string
   title: string
   isCompleted: boolean
-  targetDate?: string | null
+  dueDate?: string | null
 }
 
 export const MilestoneService = {
@@ -17,20 +17,25 @@ export const MilestoneService = {
     return res.json()
   },
 
-  createMilestone: async (projectId: string, title: string, targetDate: string | null, token: string): Promise<Milestone> => {
+  createMilestone: async (projectId: string, title: string, dueDate: string | null, token: string): Promise<Milestone> => {
+    const payload = {
+      title,
+      description: title,
+      dueDate: dueDate ?? new Date().toISOString()
+    }
     const res = await fetch(`${API_URL}/projects/${projectId}/milestones`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title, targetDate })
+      body: JSON.stringify(payload)
     })
     if (!res.ok) throw new Error('Error al crear hito')
     return res.json()
   },
 
   toggleMilestone: async (projectId: string, milestoneId: string, token: string): Promise<void> => {
-    const res = await fetch(`${API_URL}/projects/${projectId}/milestones/${milestoneId}`, {
+    const res = await fetch(`${API_URL}/projects/${projectId}/milestones/${milestoneId}/toggle`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
     })
     if (!res.ok) throw new Error('Error al actualizar hito')
   }

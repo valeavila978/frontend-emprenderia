@@ -31,7 +31,7 @@ function DashboardContent() {
       .catch(err => console.error('Error fetching matches:', err))
 
     // 2. Establish SignalR connection
-    const hubUrl = `${API_URL.replace('/api', '')}/hubs/notifications`
+    const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || `${API_URL.replace('/api', '')}/hubs/notifications`
     const connection = new HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: () => token

@@ -42,7 +42,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           elements.push(
             <pre
               key={`code-${elements.length}`}
-              className="bg-gray-900 text-gray-100 p-4 rounded-lg mb-4 overflow-x-auto text-sm"
+              className="bg-slate-100 text-slate-900 p-4 rounded-lg mb-4 overflow-x-auto text-sm"
             >
               <code>{codeContent}</code>
             </pre>
@@ -78,7 +78,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         elements.push(
           <div
             key={`heading-${idx}`}
-            className={`${className} text-blue-900 dark:text-blue-300`}
+            className={`${className} text-slate-900`}
           >
             {text}
           </div>
@@ -90,7 +90,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
         flushListItems();
         elements.push(
-          <hr key={`hr-${idx}`} className="my-6 border-t-2 border-gray-300 dark:border-gray-600" />
+          <hr key={`hr-${idx}`} className="my-6 border-t-2 border-slate-300" />
         );
         return;
       }
@@ -110,7 +110,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           .length;
         elements.push(
           <ol key={`ordered-list-${idx}`} className="list-decimal list-inside mb-4 ml-2 space-y-1">
-            <li className="text-slate-900 dark:text-slate-200">{text}</li>
+            <li className="text-slate-900">{text}</li>
           </ol>
         );
         return;
@@ -156,22 +156,28 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       if (match[1]) {
         // **bold**
         parts.push(
-          <strong key={`bold-${parts.length}`} className="font-bold text-gray-900 dark:text-white">
+          <strong key={`bold-${parts.length}`} className="font-bold text-slate-900">
             {match[1]}
           </strong>
         );
       } else if (match[2] || match[3]) {
-        // __bold__ o _italic_
         const text = match[2] || match[3];
+        const isBold = Boolean(match[2]);
         parts.push(
-          <em key={`italic-${parts.length}`} className="italic text-gray-700 dark:text-gray-300">
-            {text}
-          </em>
+          isBold ? (
+            <strong key={`bold-${parts.length}`} className="font-bold text-slate-900">
+              {text}
+            </strong>
+          ) : (
+            <em key={`italic-${parts.length}`} className="italic text-slate-800">
+              {text}
+            </em>
+          )
         );
       } else if (match[4]) {
         // *italic*
         parts.push(
-          <em key={`italic2-${parts.length}`} className="italic text-gray-700 dark:text-gray-300">
+          <em key={`italic2-${parts.length}`} className="italic text-slate-800">
             {match[4]}
           </em>
         );
@@ -180,7 +186,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         parts.push(
           <code
             key={`code-inline-${parts.length}`}
-            className="bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-red-600 dark:text-red-400"
+            className="bg-slate-100 text-slate-900 px-2 py-1 rounded text-sm font-mono"
           >
             {match[5]}
           </code>
@@ -193,7 +199,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             href={match[7]}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+            className="text-slate-900 underline hover:text-slate-700"
           >
             {match[6]}
           </a>
@@ -215,7 +221,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
   return (
     <div
-      className={`prose dark:prose-invert max-w-none ${className}`}
+      className={`prose prose-slate max-w-none text-slate-900 [&_*]:text-slate-900 [&_p]:text-slate-800 [&_strong]:text-slate-900 [&_em]:text-slate-800 [&_li]:text-slate-800 [&_h1]:text-slate-900 [&_h2]:text-slate-900 [&_h3]:text-slate-900 ${className}`}
       style={{
         wordWrap: 'break-word',
         overflowWrap: 'break-word',

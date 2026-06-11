@@ -4,6 +4,21 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { AuthContextType, User, LoginResponse } from '@/types'
 import { AuthService } from '@/services/authService'
 
+const buildUserFromResponse = (userData: any): User => ({
+  ...userData,
+  profile: userData.profile ?? {
+    userId: userData.userId ?? '',
+    name: userData.name ?? '',
+    email: userData.email ?? '',
+    role: userData.role,
+    is2FAEnabled: userData.is2FAEnabled ?? false,
+    skills: [],
+    interests: [],
+    experienceLevel: '',
+    industries: [],
+  },
+})
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -29,10 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userData = await AuthService.getMe(savedToken)
           // Mapear respuesta plana del backend a estructura anidada esperada
-          const transformedUser: User = {
-            ...userData,
-            profile: { ...userData }
-          }
+          const transformedUser: User = buildUserFromResponse(userData)
           setUser(transformedUser)
         } catch (error) {
           console.warn('Token expirado, intentando refrescar...')
@@ -48,10 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               
               const userData = await AuthService.getMe(newToken)
-              const transformedUser: User = {
-                ...userData,
-                profile: { ...userData }
-              }
+              const transformedUser: User = buildUserFromResponse(userData)
               setUser(transformedUser)
             } catch (refreshError) {
               console.error('Fallo el refresh token', refreshError)
@@ -87,10 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await AuthService.getMe(newToken)
-      const transformedUser: User = {
-        ...userData,
-        profile: { ...userData }
-      }
+      const transformedUser: User = buildUserFromResponse(userData)
       setUser(transformedUser)
       
       return { requires2FA: false }
@@ -117,10 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await AuthService.getMe(newToken)
-      const transformedUser: User = {
-        ...userData,
-        profile: { ...userData }
-      }
+      const transformedUser: User = buildUserFromResponse(userData)
       setUser(transformedUser)
     } catch (error) {
       logout()
@@ -153,10 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (success) {
       // Recargar datos de usuario para reflejar que 2FA está habilitado
       const userData = await AuthService.getMe(token)
-      const transformedUser: User = {
-        ...userData,
-        profile: { ...userData }
-      }
+      const transformedUser: User = buildUserFromResponse(userData)
       setUser(transformedUser)
     }
     return success
@@ -167,10 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const success = await AuthService.disable2FA(token, password, code)
     if (success) {
       const userData = await AuthService.getMe(token)
-      const transformedUser: User = {
-        ...userData,
-        profile: { ...userData }
-      }
+      const transformedUser: User = buildUserFromResponse(userData)
       setUser(transformedUser)
     }
     return success
@@ -179,10 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     if (token) {
       const userData = await AuthService.getMe(token)
-      const transformedUser: User = {
-        ...userData,
-        profile: { ...userData }
-      }
+      const transformedUser: User = buildUserFromResponse(userData)
       setUser(transformedUser)
     }
   }, [token])

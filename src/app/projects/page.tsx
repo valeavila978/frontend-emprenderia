@@ -8,6 +8,7 @@ import { FinancialService } from '@/services/financialService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Project } from '@/types'
 import { Users, Briefcase, Filter, X } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -25,6 +26,19 @@ function ProjectsContent() {
   const [loadingEntrepreneurs, setLoadingEntrepreneurs] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('projects')
   const [stageFilter, setStageFilter] = useState('All')
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const router = useRouter()
+
+  const openProjectModal = (project: Project) => {
+    setSelectedProject(project)
+    setShowProjectModal(true)
+  }
+
+  const closeProjectModal = () => {
+    setSelectedProject(null)
+    setShowProjectModal(false)
+  }
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -79,19 +93,19 @@ function ProjectsContent() {
       const entrepreneursMap = new Map()
       
       allProjects.forEach((proj: Project) => {
-        if (proj.createdBy) {
-          if (!entrepreneursMap.has(proj.createdBy)) {
-            entrepreneursMap.set(proj.createdBy, {
-              id: proj.createdBy,
-              email: proj.createdBy,
+        if (proj.ownerId) {
+          if (!entrepreneursMap.has(proj.ownerId)) {
+            entrepreneursMap.set(proj.ownerId, {
+              id: proj.ownerId,
+              email: proj.ownerEmail || proj.ownerId,
               projectCount: 1,
               projects: [proj]
             })
           } else {
-            const ent = entrepreneursMap.get(proj.createdBy)
+            const ent = entrepreneursMap.get(proj.ownerId)
             ent.projectCount += 1
             ent.projects.push(proj)
-            entrepreneursMap.set(proj.createdBy, ent)
+            entrepreneursMap.set(proj.ownerId, ent)
           }
         }
       })
@@ -221,7 +235,19 @@ function ProjectsContent() {
                     key={project.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-slate-100 overflow-hidden"
+                    onClick={() => {
+                      if (isEntrepreneur && project.ownerId === user?.userId) {
+                        router.push(`/projects/${project.id}`)
+                      } else {
+                        openProjectModal(project)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') openProjectModal(project)
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-slate-100 overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <div className="p-6">
                       <div className="flex items-center justify-between mb-3">
@@ -264,12 +290,20 @@ function ProjectsContent() {
                             </span>
                           )}
                         </div>
-                        <Link
-                          href={`/projects/${project.id}`}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isEntrepreneur && project.ownerId === user?.userId) {
+                              router.push(`/projects/${project.id}`)
+                            } else {
+                              openProjectModal(project)
+                            }
+                          }}
                           className="text-blue-600 hover:text-blue-800 font-bold text-sm"
                         >
-                          Ver Detalles →
-                        </Link>
+                          Ver Resumen →
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -321,13 +355,14 @@ function ProjectsContent() {
                     
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {ent.projects.map((proj: Project) => (
-                        <Link
+                        <button
                           key={proj.id}
-                          href={`/projects/${proj.id}`}
-                          className="block p-2 bg-slate-50 rounded-lg hover:bg-blue-50 transition-colors text-xs font-medium text-slate-700 hover:text-blue-600 truncate"
+                          type="button"
+                          onClick={() => openProjectModal(proj)}
+                          className="block w-full text-left p-2 bg-slate-50 rounded-lg hover:bg-blue-50 transition-colors text-xs font-medium text-slate-700 hover:text-blue-600 truncate"
                         >
                           → {proj.title}
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   </motion.div>
@@ -337,6 +372,76 @@ function ProjectsContent() {
           </>
         )}
       </div>
+      {showProjectModal && selectedProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-[32px] border border-slate-200 bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-200">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500 mb-2">Resumen Premium</p>
+                <h2 className="text-3xl font-bold text-slate-900">{selectedProject.title}</h2>
+                <p className="mt-2 text-sm text-slate-600">{selectedProject.stage}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeProjectModal}
+                className="rounded-full border border-slate-200 bg-slate-50 p-3 text-slate-700 hover:bg-slate-100"
+                aria-label="Cerrar resumen"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-3">Descripción general</h3>
+                <p className="text-slate-700 leading-relaxed">{selectedProject.description}</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500 mb-3">¿Qué?</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">{selectedProject.what || 'Información no disponible'}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500 mb-3">¿Cómo?</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">{selectedProject.how || 'Información no disponible'}</p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500 mb-3">¿Por qué?</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">{selectedProject.why || 'Información no disponible'}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-slate-900">Contactar Emprendedor</p>
+                  <p className="text-sm text-slate-600">{selectedProject.ownerEmail || 'Email de contacto no disponible'}</p>
+                </div>
+                {selectedProject.ownerEmail ? (
+                  <a
+                    href={`mailto:${encodeURIComponent(selectedProject.ownerEmail)}?subject=${encodeURIComponent(
+                      `Interés en tu startup: ${selectedProject.title}`
+                    )}&body=${encodeURIComponent(
+                      `Hola,%0D%0A%0D%0AEstoy interesado(a) en conocer más sobre tu startup: ${selectedProject.title}. Por favor, indícame la mejor forma de continuar la conversación.%0D%0A%0D%0AGracias.`
+                    )}`}
+                    className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Contactar Emprendedor
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center justify-center rounded-3xl bg-slate-300 px-6 py-3 text-sm font-bold text-slate-700"
+                  >
+                    Contacto no disponible
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { ChatMessage, ChatSession } from '@/types'
+import { ChatMessage, ChatSession, FinancialAnalysis } from '@/types'
 import { API_URL } from '@/config'
 
 // El microservicio de IA suele correr en un puerto diferente, 

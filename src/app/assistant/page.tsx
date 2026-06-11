@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ProtectedRoute, MarkdownRenderer } from '@/components'
 import { AIService } from '@/services/aiService'
 import { ProjectService } from '@/services/projectService'
 import { ChatMessage, Project } from '@/types'
@@ -201,7 +201,13 @@ function AssistantContent() {
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-slate-700 border border-slate-100'
                   }`}>
-                    <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                    {msg.role === 'assistant' && msg.content.match(/[#*_`\-\[]/g) ? (
+                      <div className="text-sm font-medium leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                        <MarkdownRenderer content={msg.content} />
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                    )}
                     <span className={`text-[10px] mt-2 block font-bold uppercase tracking-widest ${
                       msg.role === 'user' ? 'text-blue-200' : 'text-slate-400'
                     }`}>

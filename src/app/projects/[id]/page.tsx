@@ -12,6 +12,7 @@ import { ResourcesService } from '@/services/resourcesService'
 import { MatchingService, MatchDto } from '@/services/matchingService'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
+import { FinancialChart } from '@/components/FinancialChart'
 import TiptapEditor from '@/components/TiptapEditor'
 import Link from 'next/link'
 import { Project, FinancialAnalysis } from '@/types'
@@ -69,7 +70,7 @@ function ProjectDetailContent() {
   const [newMilestoneDate, setNewMilestoneDate] = useState('')
   const [resources, setResources] = useState<any[]>([])
   const [loadingResources, setLoadingResources] = useState(false)
-  const [editForm, setEditForm] = useState({ title: '', description: '', stage: '' })
+  const [editForm, setEditForm] = useState({ title: '', description: '', stage: '', what: '', how: '', why: '' })
   const [matches, setMatches] = useState<MatchDto[]>([])
   const [loadingMatches, setLoadingMatches] = useState(false)
   const [error, setError] = useState('')
@@ -130,7 +131,10 @@ function ProjectDetailContent() {
         setEditForm({ 
           title: projectData.title, 
           description: projectData.description, 
-          stage: projectData.stage 
+          stage: projectData.stage,
+          what: projectData.what ?? '',
+          how: projectData.how ?? '',
+          why: projectData.why ?? ''
         })
         
         const bmcData = await ProjectService.getBmc(projectId, token)
@@ -401,7 +405,10 @@ function ProjectDetailContent() {
       setEditForm({
         title: updated.title,
         description: updated.description,
-        stage: updated.stage
+        stage: updated.stage,
+        what: updated.what ?? '',
+        how: updated.how ?? '',
+        why: updated.why ?? ''
       })
       setIsEditingProject(false)
     } catch (err) {
@@ -653,6 +660,43 @@ function ProjectDetailContent() {
                             className="w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 font-medium"
                           />
                         </div>
+                        <div className="border-t border-slate-200 pt-4 mt-4">
+                          <h4 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            🧬 <span>ADN del Proyecto</span>
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">¿Qué hace? (What)</label>
+                              <textarea 
+                                value={editForm.what}
+                                rows={3}
+                                onChange={e => setEditForm({...editForm, what: e.target.value})}
+                                placeholder="Describe la solución o producto que ofreces"
+                                className="w-full bg-blue-50 border border-blue-100 rounded-xl p-3 text-slate-700 font-medium text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">¿Cómo lo hace? (How)</label>
+                              <textarea 
+                                value={editForm.how}
+                                rows={3}
+                                onChange={e => setEditForm({...editForm, how: e.target.value})}
+                                placeholder="Explica tu modelo de negocio o metodología"
+                                className="w-full bg-purple-50 border border-purple-100 rounded-xl p-3 text-slate-700 font-medium text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">¿Por qué lo hace? (Why)</label>
+                              <textarea 
+                                value={editForm.why}
+                                rows={3}
+                                onChange={e => setEditForm({...editForm, why: e.target.value})}
+                                placeholder="Tu misión, visión o propósito"
+                                className="w-full bg-green-50 border border-green-100 rounded-xl p-3 text-slate-700 font-medium text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
                         <Button onClick={handleUpdateProject} className="w-full py-4">Guardar Cambios</Button>
                       </div>
                     ) : (
@@ -660,6 +704,28 @@ function ProjectDetailContent() {
                         <p className="text-slate-600 text-lg leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
                           {project?.description}
                         </p>
+                        {(project?.what || project?.how || project?.why) && (
+                          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {project?.what && (
+                              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <h5 className="text-sm font-bold text-blue-900 mb-2">🤔 ¿Qué?</h5>
+                                <p className="text-sm text-blue-800">{project.what}</p>
+                              </div>
+                            )}
+                            {project?.how && (
+                              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                <h5 className="text-sm font-bold text-purple-900 mb-2">⚙️ ¿Cómo?</h5>
+                                <p className="text-sm text-purple-800">{project.how}</p>
+                              </div>
+                            )}
+                            {project?.why && (
+                              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                                <h5 className="text-sm font-bold text-green-900 mb-2">💚 ¿Por qué?</h5>
+                                <p className="text-sm text-green-800">{project.why}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="mt-8">
                           <h4 className="text-lg font-bold text-slate-800 mb-3">Subir documento para análisis de IA</h4>
                           <div
@@ -958,6 +1024,8 @@ function ProjectDetailContent() {
                       </div>
                       
                       <SemaforoFinanciero isViable={true} />
+
+                      <FinancialChart analysis={financials} />
 
                       <FinancialDashboard 
                         analysis={financials} 

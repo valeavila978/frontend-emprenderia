@@ -9,13 +9,22 @@ import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
 import Link from 'next/link'
 import { Project } from '@/types'
+import { Users, Briefcase, Filter, X } from 'lucide-react'
+import { motion } from 'framer-motion'
+
+type TabType = 'projects' | 'entrepreneurs'
 
 function ProjectsContent() {
   const [projects, setProjects] = useState<Project[]>([])
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { token, user } = useAuth()
   const [analysisMap, setAnalysisMap] = useState<Record<string, any>>({})
+  const [entrepreneurs, setEntrepreneurs] = useState<any[]>([])
+  const [loadingEntrepreneurs, setLoadingEntrepreneurs] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabType>('projects')
+  const [stageFilter, setStageFilter] = useState('All')
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -24,10 +33,16 @@ function ProjectsContent() {
         if (!token) return
         const data = await ProjectService.getProjects(token)
         setProjects(data)
-        // If viewer (mentor/investor) fetch basic financials map for listed projects
+        
+        // If viewer (mentor/investor), apply stage filter and fetch financials
         const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
         if (isViewer && data && data.length) {
-          const slice = data.slice(0, 20)
+          // Filter out 'Idea' stage projects
+          const visibleProjects = data.filter((p: Project) => p.stage !== 'Idea' && p.stage !== 'Ideación')
+          setFilteredProjects(visibleProjects)
+          
+          // Fetch financial data for visible projects
+          const slice = visibleProjects.slice(0, 20)
           const promises = slice.map((p: Project) => FinancialService.getAnalysisByProjectId(p.id, token))
           const results = await Promise.all(promises)
           const map: Record<string, any> = {}
@@ -35,6 +50,8 @@ function ProjectsContent() {
             map[p.id] = results[idx]
           })
           setAnalysisMap(map)
+        } else {
+          setFilteredProjects(data)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al cargar proyectos')
@@ -44,9 +61,53 @@ function ProjectsContent() {
     }
 
     fetchProjects()
-  }, [token])
+  }, [token, user?.role])
+
+  // Load entrepreneurs if user is entrepreneur
+  useEffect(() => {
+    if (user?.role === 'Entrepreneur' && activeTab === 'entrepreneurs') {
+      loadEntrepreneurs()
+    }
+  }, [activeTab, user?.role])
+
+  const loadEntrepreneurs = async () => {
+    if (!token) return
+    setLoadingEntrepreneurs(true)
+    try {
+      // Get all projects to identify entrepreneurs with projects
+      const allProjects = await ProjectService.getProjects(token)
+      const entrepreneursMap = new Map()
+      
+      allProjects.forEach((proj: Project) => {
+        if (proj.createdBy) {
+          if (!entrepreneursMap.has(proj.createdBy)) {
+            entrepreneursMap.set(proj.createdBy, {
+              id: proj.createdBy,
+              email: proj.createdBy,
+              projectCount: 1,
+              projects: [proj]
+            })
+          } else {
+            const ent = entrepreneursMap.get(proj.createdBy)
+            ent.projectCount += 1
+            ent.projects.push(proj)
+            entrepreneursMap.set(proj.createdBy, ent)
+          }
+        }
+      })
+      
+      // Filter to show only entrepreneurs with at least 1 project
+      setEntrepreneurs(Array.from(entrepreneursMap.values()).filter((e: any) => e.projectCount >= 1))
+    } catch (err) {
+      console.error('Error loading entrepreneurs:', err)
+    } finally {
+      setLoadingEntrepreneurs(false)
+    }
+  }
 
   const isViewer = user?.role === 'Investor' || user?.role === 'Mentor'
+  const isEntrepreneur = user?.role === 'Entrepreneur'
+  const displayProjects = stageFilter === 'All' ? filteredProjects : filteredProjects.filter(p => p.stage === stageFilter)
 
   if (loading) {
     return (
@@ -60,7 +121,7 @@ function ProjectsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-slate-50 py-12">
       <div className="max-w-6xl mx-auto px-4">
         {/* Encabezado */}
         <div className="flex justify-between items-center mb-8">
@@ -68,62 +129,212 @@ function ProjectsContent() {
           {!isViewer && (
             <Link
               href="/projects/create"
-              className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-bold"
             >
               ➕ Nuevo Proyecto
             </Link>
           )}
           {isViewer && (
-            <div className="inline-block text-sm text-slate-500">Explora startups públicas en la plataforma</div>
+            <div className="inline-block text-sm text-slate-500 font-medium">Startups visibles para inversores/mentores</div>
           )}
         </div>
+
+        {/* Tabs for Entrepreneurs */}
+        {isEntrepreneur && (
+          <div className="mb-8 flex gap-4 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`px-6 py-3 font-bold transition-all ${
+                activeTab === 'projects'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              <Briefcase className="inline mr-2" size={18} />
+              Mis Proyectos
+            </button>
+            <button
+              onClick={() => setActiveTab('entrepreneurs')}
+              className={`px-6 py-3 font-bold transition-all ${
+                activeTab === 'entrepreneurs'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              <Users className="inline mr-2" size={18} />
+              Otros Emprendedores
+            </button>
+          </div>
+        )}
 
         {/* Alertas */}
         {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
-        {/* Lista de Proyectos */}
-        {projects.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">No tienes proyectos aún</h2>
-            <p className="text-gray-600 mb-6">
-              Crea tu primer proyecto y comparte tu idea con la comunidad
-            </p>
-            <Link
-              href="/projects/create"
-              className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Crear Mi Primer Proyecto
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xl font-bold text-gray-800">{project.title}</h3>
-                  <span className="text-xs uppercase font-bold text-slate-500 px-3 py-1 rounded-full bg-slate-100">{project.stage}</span>
-                </div>
-                <p className="text-gray-600 mb-4 line-clamp-3">{project.description}</p>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500 flex items-center gap-4">
-                    <span>📅 {new Date(project.createdAt).toLocaleDateString()}</span>
-                    {analysisMap[project.id] ? (
-                      <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-bold">Análisis disponible</span>
-                    ) : null}
-                  </div>
+        {/* Tab: Projects */}
+        {activeTab === 'projects' && (
+          <>
+            {/* Filter Bar - Only for viewers */}
+            {isViewer && (
+              <div className="mb-6 flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <Filter size={18} className="text-slate-500" />
+                <span className="text-sm font-bold text-slate-600">Filtrar por etapa:</span>
+                <select
+                  value={stageFilter}
+                  onChange={(e) => setStageFilter(e.target.value)}
+                  className="ml-auto px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="All">Todas las etapas</option>
+                  <option value="Prototipo">Prototipo</option>
+                  <option value="MVP">MVP</option>
+                  <option value="Escalado">Escalado</option>
+                  <option value="Tracción">Tracción</option>
+                  <option value="Crecimiento">Crecimiento</option>
+                  <option value="Validacion">Validación</option>
+                </select>
+              </div>
+            )}
+
+            {/* Lista de Proyectos */}
+            {displayProjects.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-lg p-12 text-center">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  {isViewer ? 'No se encontraron startups' : 'No tienes proyectos aún'}
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  {isViewer 
+                    ? 'Parece que no hay startups visibles en esta etapa.'
+                    : 'Crea tu primer proyecto y comparte tu idea con la comunidad'}
+                </p>
+                {!isViewer && (
                   <Link
-                    href={`/projects/${project.id}`}
-                    className="text-blue-600 hover:underline font-medium"
+                    href="/projects/create"
+                    className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-bold"
                   >
-                    Ver Detalles →
+                    Crear Mi Primer Proyecto
                   </Link>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {displayProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-slate-100 overflow-hidden"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xl font-bold text-gray-800 line-clamp-2">{project.title}</h3>
+                        <span className="text-xs uppercase font-bold text-blue-700 px-3 py-1 rounded-full bg-blue-100 whitespace-nowrap ml-2">
+                          {project.stage}
+                        </span>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-4 line-clamp-2 text-sm">{project.description}</p>
+                      
+                      {/* ADN Summary for viewers */}
+                      {isViewer && (
+                        <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                          <div className="text-xs font-bold text-slate-700 uppercase tracking-wide">ADN del Proyecto</div>
+                          {project.what && (
+                            <div className="text-xs text-slate-700">
+                              <span className="font-bold text-slate-900">¿Qué?</span> {project.what.substring(0, 100)}...
+                            </div>
+                          )}
+                          {project.how && (
+                            <div className="text-xs text-slate-700">
+                              <span className="font-bold text-slate-900">¿Cómo?</span> {project.how.substring(0, 100)}...
+                            </div>
+                          )}
+                          {project.why && (
+                            <div className="text-xs text-slate-700">
+                              <span className="font-bold text-slate-900">¿Por qué?</span> {project.why.substring(0, 100)}...
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                        <div className="text-xs text-gray-500">
+                          📅 {new Date(project.createdAt).toLocaleDateString()}
+                          {analysisMap[project.id] && (
+                            <span className="ml-2 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-bold inline-block">
+                              ✓ Análisis
+                            </span>
+                          )}
+                        </div>
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="text-blue-600 hover:text-blue-800 font-bold text-sm"
+                        >
+                          Ver Detalles →
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab: Other Entrepreneurs */}
+        {activeTab === 'entrepreneurs' && isEntrepreneur && (
+          <>
+            {loadingEntrepreneurs ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p>Cargando emprendedores...</p>
                 </div>
               </div>
-            ))}
-          </div>
+            ) : entrepreneurs.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-lg p-12 text-center">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">No hay otros emprendedores</h2>
+                <p className="text-gray-600">Sé el primero en la comunidad con un proyecto publicado</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {entrepreneurs.map((ent) => (
+                  <motion.div
+                    key={ent.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-slate-100 p-6"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {ent.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800">{ent.email.split('@')[0]}</h4>
+                        <p className="text-xs text-slate-500">{ent.email}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <span className="text-xs font-bold text-blue-800">
+                        {ent.projectCount} {ent.projectCount === 1 ? 'proyecto' : 'proyectos'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {ent.projects.map((proj: Project) => (
+                        <Link
+                          key={proj.id}
+                          href={`/projects/${proj.id}`}
+                          className="block p-2 bg-slate-50 rounded-lg hover:bg-blue-50 transition-colors text-xs font-medium text-slate-700 hover:text-blue-600 truncate"
+                        >
+                          → {proj.title}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
